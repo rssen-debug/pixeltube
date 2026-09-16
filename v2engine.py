@@ -798,6 +798,99 @@ def fireflies(img, t, n=9, seed=7):
             d.point((int(x) + 1, int(y)), fill=(255, 240, 170, a - 120))
 
 
+
+
+# =========================================================================== #
+# MIMI — huvudkaraktärens söta katt. Liten egen rigg (14x11 px) som följer.   #
+# =========================================================================== #
+NEKO_W, NEKO_H = 14, 11
+
+
+def _neko_paint(d, pose, tail_ph, blink=False):
+    """Målar Mimi i en 14x11-canvas. pose: sit/walk1/walk2. Fötter på y=10."""
+    body = (235, 150, 62, 255)
+    white = (252, 244, 234, 255)
+    dark = (28, 22, 18, 255)
+    pink = (238, 115, 120, 255)
+    # svans: upprullad, gungar med fas
+    tx = 1 + int(round(tail_ph))
+    d.line([(2, 6), (tx, 3)], fill=body, width=1)
+    if pose != "sit":
+        d.point((tx - 1, 2), fill=white)
+        d.point((tx, 2), fill=body)
+    # kropp
+    if pose == "walk2":
+        d.rectangle([3, 6, 9, 8], fill=body)
+        d.rectangle([4, 8, 8, 9], fill=white)
+    elif pose == "walk1":
+        d.rectangle([3, 6, 9, 8], fill=body)
+        d.rectangle([4, 7, 8, 9], fill=white)
+    else:  # sit: högre, svansen lindad fram
+        d.rectangle([3, 4, 9, 9], fill=body)
+        d.rectangle([4, 7, 8, 10], fill=white)
+        d.line([(9, 10), (12, 10)], fill=body)
+        d.point((12, 9), fill=body)
+    # ben
+    if pose == "walk1":
+        d.rectangle([4, 9, 4, 11], fill=body); d.rectangle([8, 9, 8, 10], fill=body)
+    elif pose == "walk2":
+        d.rectangle([4, 9, 4, 10], fill=body); d.rectangle([8, 9, 8, 11], fill=body)
+    # huvud (framåt-höger i basläget)
+    d.rectangle([8, 1, 13, 6], fill=body)                       # rundad noppe
+    d.polygon([(8, 1), (9, -1), (10, 1)], fill=body)            # vänster öra
+    d.polygon([(12, 1), (13, -1), (14 if False else 13, 2)], fill=body)  # höger öra
+    d.point((9, 0), fill=pink)                                  # öronsnobb
+    d.rectangle([8, 5, 13, 6], fill=white)                      # nos/mulle
+    # ögon + nos
+    if blink:
+        d.point((10, 3), fill=dark); d.point((12, 3), fill=dark)
+    else:
+        d.rectangle([9, 2, 10, 3], fill=dark)
+        d.point((9, 2), fill=(255, 255, 255, 255))              # glans!
+        d.rectangle([12, 2, 12, 3], fill=dark)
+        d.point((12, 2), fill=(255, 255, 255, 255))
+    d.point((11, 4), fill=pink)                                 # nos
+    # morrhår (en pixel-rad per sida)
+    d.point((7, 4), fill=(210, 210, 220, 200))
+    d.point((4, 5) if pose == "sit" else (7, 5), fill=(210, 210, 220, 160))
+
+
+class Neko:
+    """Söt liten katt: 2 gång-frames + sitt-idle + blink-schema."""
+
+    def __init__(self):
+        self.frames = {}
+        for pose in ("sit", "walk1", "walk2"):
+            for blink in (False, True):
+                for tph in (-0.6, 0.6):
+                    k = (pose, blink, tph)
+                    c = Image.new("RGBA", (NEKO_W + 1, NEKO_H + 1), (0, 0, 0, 0))
+                    dd = ImageDraw.Draw(c)
+                    _neko_paint(dd, pose, tph, blink)
+                    self.frames[k] = c
+        self.seed = 0.7
+
+    def sprite(self, t, moving):
+        ph = t * 7.0
+        pose = "sit"
+        if moving:
+            pose = "walk1" if int(ph) % 2 == 0 else "walk2"
+        cyc = (t + self.seed) % 3.4
+        blink = cyc < 0.14
+        tph = 0.6 if int(t * 2.2) % 2 == 0 else -0.6
+        return self.frames[(pose, blink, tph)]
+
+
+def px_heart(img, x, y, col=(245, 110, 130, 255)):
+    """3x2-pixelhjärta (mild vänskap-ikon över Mimi)."""
+    d = ImageDraw.Draw(img, "RGBA")
+    d.point((x, y), fill=col); d.point((x + 2, y), fill=col)
+    d.point((x - 1, y + 1), fill=col); d.point((x, y + 1), fill=col)
+    d.point((x + 1, y + 1), fill=col); d.point((x + 3, y + 1), fill=col)
+    d.point((x, y + 2), fill=col); d.point((x + 2, y + 2), fill=col)
+    d.point((x + 1, y + 3), fill=col)
+
+
 def speedlines(img, cx, cy, n=26, col=(255, 255, 255, 120)):
     d = ImageDraw.Draw(img, "RGBA")
     for i in range(n):

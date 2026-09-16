@@ -28,7 +28,7 @@ import v2engine as E
 NEAREST = E.NEAREST
 
 FPSS = 12
-SCALE = 4                       # 320x180 -> 1280x720
+SCALE = 6                      # research: exakt 6x NEAREST -> 1080p                       # 320x180 -> 1280x720
 OUTW, OUTH = E.W * SCALE, E.H * SCALE
 
 SERIES = "VOLT BREAKER"
@@ -757,6 +757,25 @@ class Renderer:
                 bx += int(math.sin(local_t * 60) * 1.5)
             img.alpha_composite(ch_img, (bx, by))
             # idle-andning
+        # ---- MIMI (Rens katt) — auto-följare med söt-SE --------------------
+        if "ren" in actors and actors["ren"].pose_at(local_t) != "none":
+            if not hasattr(self, "_neko"):
+                self._neko = E.Neko()
+            from PIL import ImageOps as _IO2
+            rx0, _rf0 = actors["ren"].track.at(local_t)
+            rx1, rf1 = actors["ren"].track.at(max(0.0, local_t - 0.55))
+            speed = abs(rx0 - rx1) / 0.55 if local_t > 0.55 else 0.0
+            moving = speed > 2.0
+            cx = rx1 + (-16 if not rf1 else 16)          # hänger bakom Rens riktning
+            spr = self._neko.sprite(local_t, moving)
+            if not rf1:
+                spr = _IO2.mirror(spr)
+            hop = int(abs(math.sin(local_t * 7.0)) * 2.5) if moving else 0
+            img.alpha_composite(spr, (int(cx - spr.width // 2),
+                                      int(E.GROUND - spr.height + 1 - hop)))
+            if not moving and local_t % 7 < 0.8:           # vänskap-hjärta var 7:e sekund
+                E.px_heart(img, int(cx), int(E.GROUND - spr.height - 14
+                                             - int(2 * math.sin(local_t * 6))))
         # fx-lager
         for fx in scene.get("fx", []):
             k = fx["kind"]
@@ -887,7 +906,7 @@ def main():
     # steg 1: bildrender till silent-mp4; ljudet muxas i steg 2
     pipe = subprocess.Popen(
         [ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{OUTW}x{OUTH}",
-         "-r", str(FPSS), "-i", "-", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+         "-r", str(FPSS * 2), "-i", "-", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p",
          "-preset", "medium", "-crf", "18", tmp_silent],
         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -999,6 +1018,7 @@ def main():
             p = max(0.0, (s["dur"] - lt) / s["fadeout"])
             img = Image.blend(Image.new("RGBA", img.size, (0, 0, 0, 255)), img, p)
         pipe.stdin.write(img.convert("RGB").tobytes())
+        pipe.stdin.write(img.convert("RGB").tobytes())   # hold on twos -> 24fps
         if f % 120 == 0:
             print(f"\r   renderar {100*f/nframes:5.1f}%", end="", flush=True)
     pipe.stdin.close(); pipe.wait()

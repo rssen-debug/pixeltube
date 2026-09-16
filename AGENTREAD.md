@@ -505,3 +505,19 @@ RESEARCH (sparat: soundcy chiptune-teknik, soundation NES-byggstenar, pixnote sk
 - BOXSÄCKEN: sack_x=46 vänsterdoktorn -> Ren står x=72 med flip=True under träningsblocken
   (armräckvidd 26 -> 46 = TRÄFF), vänder sig först vid replik-byte mot dörren. Samma fix EP001+EP002.
   REGEL: tränings-slag kräver prop-räckvidd-verifiering precis som fighter.
+
+## 9n) MIMI KATTEN + 1080p/24fps (user research + husdjurs-önskemål)
+- **Mimi**: E.Neko — egen 15x12-rigg (sit/walk1/walk2 x blink x svansphase, prebuildade frames).
+  Orange vit-magad katt: ellipse-kropp, noppe med öron (trianglar+rosa snobb), glans-ögon, rosa nos,
+  morrhår-prickar. Beteende i scene_frame (automatiskt i ALLA dock/dojo-scener där ren finns):
+  position = rens x vid t-0.55s (hänger efter som anime-sidekick), riktning = flip, hopp-bob vid fart,
+  sit-pose när ren står stilla, px_heart-hjärta var 7:e sekund (söthets-SL). Vit mule + svans-tipp.
+  Renderas EFTER aktörerna (framför benen). Mimi pratar inte (maskot); lägg ev. "mew"-subs senare.
+- **User-research implementerat**: exakt 6x NEAREST 320x180 -> 1920x1080 (SCALE=6);
+  12 unika fps dubbleras till 24fps-export (pipe -r 24, varje frame skrivs 2x) = anime "on twos"
+  men smidig plattforms-spelning. Standarden varierar FPS per rörelse (idle 6 / action 24) — vi kör
+  12fps logik + FX läggs på samma 12-grid; framtida: action-block kan få 24 unika frames vid slag.
+- Renderare: ~46s CPU per episod i 1080p (fortfarande lätta filmer 8-9 MB crf18).
+- Kvar från research-backlog: selective outlines (vi använder mörk outl redan per material),
+  parallax-lager i miljö (dock har redan stads-silhuett; fördjupa med 2:plan),
+  dithering sparsamt på stora ytor (himmel/golv) — provas i nästa pass.
