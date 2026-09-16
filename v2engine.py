@@ -1203,6 +1203,35 @@ def draw_body(img, suit, j, scale=1.0):
         hx, hy = hd
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], fill=suit.skin)
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], outline=out)
+    # ---------------- v5.1: SEXIGARE KROPPAR (silhuett-shading) ----------------
+    ll = _lt(suit.jacket, 1.5)
+    pv3 = P("pelvis")
+    # 1) midje: mjuka höftkurvor istf korv: 1px mörkare notch på sidorna i "klyften"
+    d.point((pv3[0] - max(4, suit.tor_w // 2) - 1, pv3[1] - 4), fill=_dk(suit.jacket, 0.7))
+    d.point((pv3[0] - max(4, suit.tor_w // 2), pv3[1] - 5), fill=_dk(suit.jacket, 0.75))
+    d.point((pv3[0] + max(4, suit.tor_w // 2) + 1, pv3[1] - 4), fill=_dk(suit.jacket, 0.78))
+    # 2) rim-light: vänster torssida + yttre fram-ben (anime edge-light)
+    t1 = max(1, int(scale))
+    d.line([(pv3[0] - max(4, suit.tor_w // 2) - 2, pv3[1] - 2),
+            (shL[0] - 3, shL[1] + 2)], fill=ll, width=t1)
+    d.line([(shL[0] - 2, shL[1] + 1), (shL[0] - 2, shL[1] - 3)], fill=ll, width=t1)
+    d.line([(ftR[0] + 3, ftR[1] - 7), (hipR[0] + 4, hipR[1] - 2)], fill=ll, width=t1)
+    # 3) KURVOR: höft-glans + byst under-skugga (tjejerna)
+    if suit.bust >= 1:
+        d.point((pv3[0] - suit.hips + 1, pv3[1] - 2), fill=ll)
+        d.point((pv3[0] - suit.hips + 2, pv3[1] - 1), fill=ll)
+        cx_b = (shL[0] + shR[0]) // 2
+        cy_b = shL[1] + 6 + (2 + suit.bust) - 1
+        for bx2 in (cx_b - 3, cx_b + 3):
+            d.arc([bx2 - (2 + suit.bust), cy_b - 2, bx2 + (2 + suit.bust), cy_b + 2],
+                  10, 170, fill=_dk(suit.jacket, 0.58), width=1)
+    # 4) MUSKELBRYST: pec-linje + axel-glans för stora killarna
+    if suit.arm_w >= 6:
+        cx_b = (shL[0] + shR[0]) // 2
+        d.arc([cx_b - 4, shL[1] + 3, cx_b + 4, shL[1] + 9], 15, 165,
+              fill=_dk(suit.jacket, 0.62), width=1)
+        d.point((shL[0] - 1, shL[1] - 1), fill=ll)
+        d.point((shR[0] + 1, shR[1] - 1), fill=ll)
 
 
 # ---------------------------------------------------------------------------
@@ -1303,10 +1332,12 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default"):
                   "happy"):
         im = _base_head(skin, out)
         d = ImageDraw.Draw(im)
+        # v5.1: SOLID månad/topp så INGET genomskinligt "hål" kan uppstå i frisen
+        d.rectangle([3, 1, 31, 13], fill=cols["H"] + (255,))
         _hair(d, hair_style, cols["H"], out)
         # hårfäst-skugga (anime-tell): mörk hudrand längs frisans
-        d.line([(6, 13), (27, 13)], fill=_dk(skin, 0.72))
-        d.line([(7, 14), (26, 14)], fill=_dk(skin, 0.85))
+        # kort hårfäst-skugga direkt under luggen (inte grå-rand över hela pannan!)
+        d.line([(8, 13), (26, 13)], fill=_dk(cols["H"], 0.55) + (255,))
         # v5: anime-hårskimra (cel ljusbåge, dubbelgradig)
         d.arc([5, 1, 27, 17], 195, 340, fill=_lt(cols["H"], 1.5) + (255,), width=2)
         d.arc([8, 3, 24, 14], 210, 330, fill=_lt(cols["H"], 1.22) + (255,), width=1)

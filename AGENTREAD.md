@@ -533,3 +533,18 @@ Verklig AI-anime kräver GPU-motorer; vår CPU-fabrik målar anime i kod. v5:
 - DOJO FRAME: lykt-halo (a30), månljuskil från fönstret (a16 polygon över golvet).
 - Returnerar [heads,with_mouth]-signatur: probes måste packa upp listan.
 Render ~47s/episod vid 1080p (8.5-9.5 MB).
+
+## 9p) v5.1 KROPPAR + HUVUD-HÅL-FIX (user: sexiga kroppar, fixa hålet i huvudet)
+- HUVUDET: orsak = transparenta luckor i _hair-polygonerna + hela pannan bred grå hairline-skugga
+  => kändes som ett "hål"/kapa-band. FIX: solid rektangel [3,1,31,13] i H innan style-ritningen +
+  hairline-skuggan kortad till under luggen (x8-26) i _dk(H,0.55) i stället för skin-grå.
+- KROPPAR (i slutet av draw_body, efter armar så rim-cellen vinner):
+  * midje: 1-2px notch-punkter vid midjesidorna (inget diagnoal-kil! första försöket gjorde
+    kroppen "plattband-strömmig" — backat). 
+  * rim-light _lt(jacket,1.5): vänster torssida-linje + axel-kant + YTTRE fram-benlinje (anime edge-light).
+  * BUST: under-bågskugga (arc 10-170) per lobe + höft-glanspunkter (kurvor-cel).
+  * MUSKEL (arm_w>=6): pec-linje arc 15-165 under halsbandet + axel-glansprickar.
+  * Girl-cast redan: mika bust=2 hips=10 | naya bust=1 | yuki slim 0.9. Killar arm_w 6/4/8.
+- Keep it tasteful 16+: kurvor/muskler via cel-shading, inget explicit, ingen naken hud.
+- NOTE övning: kropp-probe utan huvud ser konstigare ut än verkligheten — verifiera alltid
+  i scenen (hel + ljus) innan man accepterar förändringar.
