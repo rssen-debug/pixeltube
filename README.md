@@ -1,0 +1,64 @@
+# 🦖 PixelTube
+
+A fully procedural **16+ pixel-animation factory** that runs on pure CPU.
+Every frame is drawn by code, every sound is synthesized by code, and the
+pixel voices are gibberish bleeps (Banjo-Kazooie style) with subtitles
+translating what the characters "say". No GPU, no assets, no footage.
+
+**The series:** two episodic agents – **Doris** the pink dinosaur and
+**Rico** the monkey – take on absurd missions: crystal heists, beach
+fortress defenses, snowball-drone unions and cake-vault break-ins.
+
+---
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+
+# Render one episode (pixel-bleep voices, no TTS needed)
+python3 make_video.py --seed 77 --story 6 --scale 4 --backend none
+
+# A whole season
+python3 batch.py --count 10 --backend none
+
+# With a local LLM writing the missions (Qwen via Ollama)
+python3 make_video.py --llm --idea "a heist on the moon"
+```
+
+Output lands in `out/ep<seed>-<title>.mp4` (720p at `--scale 4`) with a
+matching `.json` meta file ready for `upload_youtube.py`.
+
+## How it works
+
+| File | Role |
+|---|---|
+| `engine.py` | Procedural pixel renderer: 7 worlds, 18 props, character registry. **Same name = same character forever.** |
+| `story.py` | Mission templates (English, mission-comedy) + a verb parser: the text IS the animation script (`"Rico ducked"` → duck, `"they sprinted together"` → both run). |
+| `voice.py` | Gibberish pixel voices: one square-wave bleep per syllable, pitch locked per species (dino low, ape mid, bunny high). Deterministic per seed. |
+| `sfx.py` | Synthesized movement SFX: alternating footsteps, jump-boing + landing thud, bonk, snore – looped in sync with the animation cycle. |
+| `make_video.py` | Timeline assembly, subtitles (scene length = reading time), outro, mux via imageio-ffmpeg. |
+| `script_llm.py` | Optional local QLLM (Qwen/Ollama) writes new missions in JSON. |
+| `batch.py` | Season renderer. |
+| `upload_youtube.py` | YouTube upload (OAuth), `selfDeclaredMadeForKids=False` (16+ content). |
+
+## The cast
+
+Doris, Boris, Leo, Nova, Trix, Puff, Milo, Zia (dinos) · Rico, Bosco (apes)
+· Hops, Ash, Pix (bunnies). Unknown names get a deterministic hash identity.
+
+```bash
+python3 make_video.py --cast "doris,kanin" --story 0   # custom duo
+python3 preview.py cast                                 # sprite sheet
+```
+
+## Steering an episode
+
+* `--story N` – pick template (0–6) or let the seed choose
+* `--seed N` – deterministic everything
+* `--backend none` – pixel bleeps (default demo mode) · `--silent` – music+SFX only
+* `--llm` / `--idea "..."` – let a local LLM write the mission
+
+## License
+
+MIT. Draw loud, render often. 🎬
