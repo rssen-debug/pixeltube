@@ -253,6 +253,13 @@ HAIR["pony"] = _rows("""
 ......HHHHHHHHHHHH......
 ......HHHHHHHHHHH.......
 """)
+HAIR["short"] = _rows("""
+........HHHHHHHH........
+......HHHHHHHHHHHH......
+......HHHHHHHHHHHH......
+......HHHHHHHHHHHH......
+""")
+
 HAIR["hawk"] = _rows("""
 ........HHHHH...........
 ........HHHHH...........
@@ -964,6 +971,90 @@ def px_heart(img, x, y, col=(245, 110, 130, 255)):
 # =========================================================================== #
 # 9-5-MILJÖER: lägenhet, tågperrong, kontor, gatan (buss!), void              #
 # =========================================================================== #
+def portal(img, x, y, t, seed=0):
+    """Pulserande grön multiversum-portal (BAKOM aktörer). Logiska koordinater."""
+    d = ImageDraw.Draw(img, "RGBA")
+    ph = t * 6.0 + seed * 2.1
+    for i, rr in enumerate((30, 22, 14)):
+        rx = rr + int(3 * math.sin(ph + i * 1.7))
+        ry = int(rx * 1.5)
+        col = ((40, 235, 130, 120), (90, 255, 170, 90), (160, 255, 210, 60))[i]
+        d.ellipse([x - rx, y - ry, x + rx, y + ry], outline=col, width=2)
+    for k in range(8):                            # swirl-damm i ellipsbana
+        a = ph * 0.5 + k * 0.785
+        d.point((x + int(math.cos(a) * 18), y + int(math.sin(a) * 27)),
+                fill=(210, 255, 220, 200))
+    d.ellipse([x - 9, y - 13, x + 9, y + 13], fill=(30, 90, 60, 70))
+
+
+DINO_W, DINO_H = 76, 48
+
+
+def _dino_paint(d, step, jaw, downed):
+    """Cartoon T-rex som jagar HÖGER (spegla för vänster)."""
+    G = (92, 130, 60); DG = (54, 84, 34); BG = (160, 180, 100)
+    WT = (240, 240, 235); RD = (200, 60, 50)
+    if downed:                                           # knockout: på sidan
+        d.ellipse([10, 26, 58, 44], fill=G, outline=DG)  # kropp liggande
+        d.polygon([(14, 36), (0, 30), (2, 40), (16, 42)], fill=G, outline=DG)  # svans
+        d.rectangle([52, 20, 74, 34], fill=G, outline=DG)                      # huvud
+        d.rectangle([62, 28, 76, 34], fill=G, outline=DG)                      # nos
+        d.line([(56, 24), (59, 27)], fill=DG); d.line([(59, 24), (56, 27)], fill=DG)  # X-öga
+        for k, (sx, sy) in enumerate(((64, 14), (70, 10), (58, 10))):          # svimmelstjärnor
+            d.point((sx, sy), fill=(255, 235, 130, 255))
+            d.point((sx + 1, sy + 1), fill=(255, 235, 130, 200))
+        d.rectangle([20, 44, 30, 46], fill=DG)           # ben i vädret
+        d.rectangle([36, 44, 46, 46], fill=DG)
+        return
+    d.polygon([(16, 26), (0, 18), (2, 30), (16, 32)], fill=G, outline=DG)      # svans
+    d.ellipse([16, 14, 54, 34], fill=G, outline=DG)                            # kropp
+    d.ellipse([22, 22, 50, 36], fill=BG)                                       # buk-patch
+    for sx in (24, 32, 40):                                                    # ryggrand
+        d.line([(sx, 15), (sx + 2, 20)], fill=DG)
+    d.rectangle([46, 10, 56, 24], fill=G, outline=DG)                          # nacke
+    d.rectangle([50, 2, 72, 15], fill=G, outline=DG)                           # huvud
+    d.rectangle([62, 6, 76, 13], fill=G, outline=DG)                           # nos
+    if jaw:                                                                    # öppet käk-gap!
+        d.polygon([(62, 13), (76, 19), (74, 21), (62, 17)], fill=(150, 50, 44),
+                  outline=DG)
+        d.point((66, 18), fill=RD)                                             # tunga
+        for tx in range(64, 74, 3):
+            d.point((tx, 19), fill=WT)                                         # undertänder
+    else:
+        d.line([(62, 14), (75, 15)], fill=DG)
+    for tx in range(64, 74, 3):                                                # överkäkständer
+        d.point((tx, 13), fill=WT)
+    d.rectangle([54, 4, 58, 8], fill=WT)                                       # öga
+    d.rectangle([56, 5, 57, 6], fill=(16, 14, 18, 255))
+    d.line([(53, 3), (60, 5)], fill=DG)                                        # arg bryn
+    d.rectangle([46, 24, 49, 28], fill=G, outline=DG)                          # mini-arm!
+    d.point((48, 29), fill=DG)
+    s0 = -2 if step else 0; s1 = 0 if step else -2                             # ben-hopp
+    d.rectangle([24, 34 + s0, 29, 44 + s0], fill=G, outline=DG)
+    d.rectangle([22, 42 + s0, 30, 46 + s0], fill=G, outline=DG)
+    d.rectangle([36, 34 + s1, 41, 44 + s1], fill=G, outline=DG)
+    d.rectangle([34, 42 + s1, 42, 46 + s1], fill=G, outline=DG)
+
+
+class Dino:
+    """T-rex-jagare: 2 stegfaser x käke x nedslagen, cachade sprites."""
+
+    def __init__(self):
+        self.frames = {}
+        for down in (False, True):
+            for step in (0, 1):
+                for jaw in (0, 1):
+                    c = Image.new("RGBA", (DINO_W + 2, DINO_H + 2), (0, 0, 0, 0))
+                    dd = ImageDraw.Draw(c)
+                    _dino_paint(dd, step, jaw, down)
+                    self.frames[(down, step, jaw)] = c
+
+    def sprite(self, t, moving, roar=False, downed=False):
+        step = int(t * 9) % 2 if moving else 0
+        jaw = 1 if roar else (1 if (moving and int(t * 2) % 3 == 0) else 0)
+        return self.frames[(downed, step, jaw)]
+
+
 class ApartmentMorning:
     """Sovsälja: säng, rödh inte väckarklockan, fönstergryning."""
 
@@ -1685,7 +1776,38 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default", gaze=0):
         d.arc([5, 1, 27, 17], 195, 340, fill=_lt(cols["H"], 1.5) + (255,), width=2)
         d.arc([8, 3, 24, 14], 210, 330, fill=_lt(cols["H"], 1.22) + (255,), width=1)
 
+        def rm_eye(cx, cy, side):
+            """Rick&Morty-öga: stor vit oval + liten pupill som vandrar med gaze."""
+            dx = int(gaze) * 2
+            if state == "blink":
+                d.line([(cx - 4, cy), (cx + 3, cy)], fill=out, width=1)
+                return
+            if state == "x":
+                d.line([(cx - 3, cy - 3), (cx + 2, cy + 3)], fill=out)
+                d.line([(cx + 2, cy - 3), (cx - 3, cy + 3)], fill=out)
+                return
+            if state == "happy":
+                d.arc([cx - 4, cy - 4, cx + 3, cy + 3], 190, 350, fill=out, width=1)
+                return
+            if state == "spark":
+                for ddx, ddy in ((0, -4), (-3, -1), (2, -1), (-2, 2), (1, 2), (0, 4)):
+                    d.point((cx + ddx, cy + ddy), fill=(120, 220, 255, 255))
+                return
+            ry = 5 if state in ("wide", "whiteout") else 4
+            d.ellipse([cx - 4, cy - ry, cx + 3, cy + ry], fill=white, outline=out)
+            if state == "angry":
+                d.line([(cx - 4, cy - ry), (cx + 3, cy - 1 - ry // 2)], fill=out)
+            if state == "sad":
+                d.line([(cx - 4, cy - ry), (cx + 3, cy - ry + 3)], fill=out)
+            if state != "whiteout":                       # RM-pupill: litet svart kludd
+                d.rectangle([cx + dx - 1, cy - 1, cx + dx, cy + 1],
+                            fill=(16, 14, 18, 255))
+                d.point((cx + dx - 1, cy - 1), fill=(70, 70, 80, 255))
+
         def eye(cx, cy, side):
+            if eyes_kind == "rm":
+                rm_eye(cx, cy, side)
+                return
             if state == "blink":
                 d.line([(cx - 3, cy), (cx + 2, cy)], fill=out, width=1)
                 return
@@ -1762,7 +1884,7 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default", gaze=0):
         elif state == "sad":
             d.line([(6, 17), (12, 15)], fill=out)
             d.line([(27, 17), (21, 15)], fill=out)
-        elif state in ("normal", "wide", "spark"):
+        elif state in ("normal", "wide", "spark") and eyes_kind != "rm":
             d.line([(7, 15), (12, 15)], fill=_dk(cols["H"], 0.5))
             d.line([(22, 15), (27, 15)], fill=_dk(cols["H"], 0.5))
         # näsa

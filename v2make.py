@@ -17,7 +17,7 @@ import time
 
 import numpy as np
 import imageio_ffmpeg
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 import voice as voicemod
 import sfx as sfxmod
@@ -31,6 +31,36 @@ FPSS = 12
 SCALE = 6                      # research: exakt 6x NEAREST -> 1080p
 VERT = False                   # 9:16-läge (default av)
 TTS_MODE = False               # riktig TTS-röst istf pixel-pip (per-line wavs i tts/)
+TTS_DIR = "/home/user/pixeltube/tts"   # per-ep TTS-katalog (tts910 för portal fight)
+_VIG = None
+
+
+def hi_post(img, f, chroma=False):
+    """HD-2D 'wow-passet' (VERT @60fps): bloom på ljus/stamps, vignette, chunky
+    film-grain, kromatisk aberration vid impakt/shake. ~90ms/frame, CPU-vänligt."""
+    global _VIG
+    im = img.convert("RGB")
+    W, H = im.size
+    if _VIG is None or _VIG.shape[:2] != (H, W):
+        yy, xx = np.mgrid[0:H, 0:W]
+        r = np.sqrt(((xx - W / 2) / (W * 0.72)) ** 2 + ((yy - H / 2) / (H * 0.72)) ** 2)
+        _VIG = (1.0 - 0.30 * np.clip(r - 0.55, 0, 1) ** 1.6)[..., None]
+    small = im.resize((W // 8, H // 8), Image.BILINEAR)
+    sa = np.asarray(small).astype(np.float32)
+    lum = sa.max(axis=2, keepdims=True)
+    bright = sa * (lum > 200)
+    b = Image.fromarray(bright.astype(np.uint8)).filter(ImageFilter.GaussianBlur(5))
+    b = b.filter(ImageFilter.GaussianBlur(5)).resize((W, H), Image.BILINEAR)
+    arr = np.asarray(im).astype(np.float32) + np.asarray(b).astype(np.float32) * 0.38
+    arr *= _VIG
+    rng = np.random.RandomState(f)
+    g = rng.normal(0, 3.8, (H // 8, W // 8))
+    g = np.asarray(Image.fromarray(g.astype(np.float32)).resize((W, H), Image.NEAREST))[..., None]
+    arr += g
+    if chroma:
+        arr[:, :, 0] = np.roll(arr[:, :, 0], 4, axis=1)
+        arr[:, :, 2] = np.roll(arr[:, :, 2], -4, axis=1)
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 VERT_STAMPS_OUT = False        # VERT: stamps ritas på output-koordinater                       # 320x180 -> 1280x720
 OUTW, OUTH = E.W * SCALE, E.H * SCALE
 
@@ -748,9 +778,17 @@ class Renderer:
             dt, dx = scene["dust_at"]
             if dt <= local_t <= dt + 0.8:
                 E.dust(img, dx, 140)
-        # AURA-FLAMMOR först (energi hör BAKOM karaktären, inte snack över den)
+        # UNIVERSUM-TINT: färgfilter per värld (billig PIL-blend, CPU-vänlig)
+        if scene.get("tint"):
+            img = Image.blend(img.convert("RGB"),
+                              Image.new("RGB", img.size, scene["tint"]), 0.22
+                              ).convert("RGBA")
+            d = ImageDraw.Draw(img, "RGBA")
+        # AURA-FLAMMOR + PORTALER först (energi hör BAKOM karaktären)
         for fx in scene.get("fx", []):
-            if fx["kind"] == "aura" and fx["t0"] <= local_t <= fx["t1"]:
+            if fx["kind"] == "portal" and fx["t0"] <= local_t <= fx["t1"]:
+                E.portal(img, fx["x"], fx["y"], local_t, seed=fx.get("seed", 0))
+            elif fx["kind"] == "aura" and fx["t0"] <= local_t <= fx["t1"]:
                 ax = actors[fx["x_track"]].track.at(local_t)[0] if fx.get("x_track") else fx["x"]
                 E.aura(img, ax, E.GROUND, 96, local_t, fx.get("hue", "violet"))
         # BLICK: vem talar, var står denne?
@@ -773,6 +811,34 @@ class Renderer:
                         push = (26 - gap) / 2 if gap > 0.5 else 13.0
                         sep[na] = sep.get(na, 0.0) - push
                         sep[nb] = sep.get(nb, 0.0) + push
+        # DINO-JAGAREN: följer en aktör med fördröjning (försvinner aldrig helt)
+        dn = scene.get("dino")
+        if dn and dn.get("follow") in actors:
+            if not hasattr(self, "_dino"):
+                self._dino = E.Dino()
+            ref = actors[dn.get("follow")]
+            lt2 = max(0.0, local_t - dn.get("delay", 1.1))
+            x_ref, fl_ref = ref.track.at(lt2)
+            pose_ref = ref.pose_at(lt2)
+            moving = pose_ref in ("mov", "walk1", "walk2")
+            dx = x_ref + dn.get("xoff", -48)
+            if dn.get("enter") and local_t < dn["enter"]:
+                p = local_t / dn["enter"]
+                dx = int(E._lerp(-80, dx, p * p))          # sprintar in från vänster
+            hit_t = dn.get("hit_t")
+            downed = hit_t is not None and local_t >= hit_t
+            if downed:
+                dx = dn.get("hit_x", dx)
+            roar = any(r0 <= local_t <= r1 for r0, r1 in dn.get("roar", ()))
+            spr = self._dino.sprite(local_t, moving and not downed, roar, downed)
+            if fl_ref:                      # spriten är målad åt höger
+                from PIL import ImageOps as _IO3
+                spr = _IO3.mirror(spr)
+            hop = int(abs(math.sin(local_t * 11)) * 4) if moving and not downed else 0
+            img.alpha_composite(spr, (int(dx - spr.width * 0.55),
+                                      E.GROUND - spr.height + 2 - hop))
+            if downed and local_t < hit_t + 0.5:
+                E.dust(img, int(dx), 138)
         # aktörer
         order = sorted(actors.items(), key=lambda kv: kv[1].track.at(local_t)[0])
         for name, act in order:
@@ -1185,6 +1251,159 @@ def episode_905v(cast):
     return sc
 
 
+# =========================================================================== #
+# PORTAL FIGHT — Rick&Morty-inspirerad multiversum-jakt                       #
+# =========================================================================== #
+def build_cast_rm():
+    rex = E.AnimeChar("rex", {"H": (140, 190, 225), "S": (245, 235, 225),
+                              "T": (238, 238, 244), "P": (110, 98, 74),
+                              "B": (58, 54, 48), "K": (24, 22, 28)},
+                      hair="spiky", iris=(20, 20, 26), voice_pitch="ren",
+                      eyes_kind="rm", scale_x=1.0, scale_y=1.03,
+                      suit=E.Suit((238, 238, 244), (110, 98, 74), (58, 54, 48),
+                                  (245, 235, 225), arm_w=4, tor_w=10, hips=7))
+    milo = E.AnimeChar("milo", {"H": (110, 80, 45), "S": (250, 215, 180),
+                                "T": (250, 210, 55), "P": (78, 108, 160),
+                                "B": (70, 60, 50), "K": (24, 22, 28)},
+                       hair="short", iris=(20, 20, 26), voice_pitch="mika",
+                       eyes_kind="rm", scale_x=0.97, scale_y=0.94,
+                       suit=E.Suit((250, 210, 55), (78, 108, 160), (70, 60, 50),
+                                   (250, 215, 180), arm_w=4, tor_w=9, hips=7))
+    return {"rex": rex, "milo": milo, "narr": rex}
+
+
+def episode_910portal(cast):
+    """PORTAL FIGHT ep001 — de springer genom universum, raptorn jagar,
+    bussen från 9-5 löser det. Brainrot-takt: zoom-punch var 2-3s, stamps,
+    dinos head-fakes, K.O. Tider låsas mot uppmätta TTS-wavs (tts910/)."""
+    sc = []
+    # 0) KALLSTART: ut ur portalen in i voiden
+    sc.append({
+        "env": ("void", {}), "dur": 5.4, "mood": "mystery", "music_vol": 1.2,
+        "fadein": 0.1, "anchor_off": -48,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.012 + max(0.0, 0.22 - t * 0.5),
+                 "focus": (170, 96)}],
+        "actors": {
+            "rex": {"track": [(0, 126, False), (2.4, 262, False), (5.4, 266, False)],
+                    "blocks": [(0, 2.4, "mov"), (2.4, 5.4, "idle")],
+                    "faces": [(0.3, "wide", False), (3.0, "normal", False)]},
+            "milo": {"track": [(0, 100, False), (2.4, 236, False), (5.4, 240, False)],
+                     "blocks": [(0, 2.4, "mov"), (2.4, 5.4, "idle")],
+                     "faces": [(0.4, "wide", False)]},
+        },
+        "fx": [{"kind": "portal", "t0": 0.0, "t1": 5.4, "x": 132, "y": 96, "seed": 1},
+               {"kind": "stamp", "t0": 1.0, "t1": 2.2, "text": "STOLEN GOODS",
+                "scale": 6, "x": 300, "y": 150}],
+        "lines": [(0.4, "narr", "So they stole a portal gun. The multiverse objected.")],
+        "audio": [(0.15, "whoosh", 0.9), (0.3, "boom", 0.5), (2.6, "rumble", 0.5),
+                  (0.2, "sparkle", 0.6)]})
+    # 1) DOCK-REGNET: teaser!
+    sc.append({
+        "env": ("dock", {}), "dur": 5.6, "mood": "menace", "music_vol": 1.2,
+        "fadein": 0.1, "anchor_off": -48,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.03 + t * 0.015, "focus": (150, 96)}],
+        "actors": {
+            "rex": {"track": [(0, -10, False), (5.05, 258, False), (5.6, 258, False)],
+                    "blocks": [(0, 5.05, "mov"), (5.05, 5.6, "idle")],
+                    "faces": [(0.5, "wide", False), (2.6, "normal", False)]},
+            "milo": {"track": [(0, -46, False), (5.05, 222, False), (5.6, 222, False)],
+                     "blocks": [(0, 5.05, "mov"), (5.05, 5.6, "idle")],
+                     "faces": [(0.5, "wide", False)]},
+        },
+        "dino": {"follow": "milo", "delay": 0.55, "xoff": -32, "enter": 0.9,
+                "roar": [(1.6, 2.3)]},
+        "fx": [{"kind": "portal", "t0": 2.6, "t1": 5.6, "x": 268, "y": 96, "seed": 2},
+               {"kind": "impact", "t": 5.05, "x": 252, "y": 92, "invert": True},
+               {"kind": "stamp", "t0": 0.5, "t1": 1.7, "text": "TEETH POPULATION: 1",
+                "scale": 6, "x": 270, "y": 150}],
+        "lines": [(0.5, "narr", "First stop: rain city. Population... teeth.")],
+        "audio": [(1.6, "rumble", 0.8), (4.95, "whoosh", 0.9), (5.05, "boom", 0.8)]})
+    # 2) KONTORS-DJUNGELN: HR vs raptor
+    sc.append({
+        "env": ("office", {}), "dur": 6.5, "mood": "mystery", "music_vol": 1.1,
+        "tint": (30, 70, 34), "fadein": 0.1, "anchor_off": -42,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.04 + t * 0.012, "focus": (170, 96)}],
+        "actors": {
+            "rex": {"track": [(0, -10, False), (3.4, 170, False), (5.85, 240, False),
+                              (6.5, 240, False)],
+                    "blocks": [(0, 5.85, "mov"), (5.85, 6.5, "idle")],
+                    "faces": [(0.4, "wide", False), (3.0, "normal", False)]},
+            "milo": {"track": [(0, -46, False), (3.4, 134, False), (5.85, 204, False),
+                               (6.5, 204, False)],
+                     "blocks": [(0, 5.85, "mov"), (5.85, 6.5, "idle")],
+                     "faces": [(0.4, "wide", False)]},
+        },
+        "dino": {"follow": "milo", "delay": 0.5, "xoff": -34, "enter": 0.8,
+                "roar": [(2.0, 2.6)]},
+        "fx": [{"kind": "portal", "t0": 3.4, "t1": 6.5, "x": 262, "y": 96, "seed": 3},
+               {"kind": "impact", "t": 5.9, "x": 240, "y": 92, "invert": True},
+               {"kind": "stamp", "t0": 0.4, "t1": 1.6, "text": "JUNGLE HR",
+                "scale": 6, "x": 320, "y": 140},
+               {"kind": "stamp", "t0": 2.8, "t1": 4.0, "text": "RAPTORS > HR",
+                "scale": 5, "x": 300, "y": 300}],
+        "lines": [(0.5, "narr",
+                   "This universe has HR. And raptors. The raptors are nicer.")],
+        "audio": [(2.0, "rumble", 0.7), (2.1, "boing", 0.5), (5.8, "whoosh", 0.9),
+                  (5.9, "boom", 0.8)]})
+    # 3) GATAN: bussen från 9-5 hittar sin sanna kallelse (DINON!)
+    sc.append({
+        "env": ("street", {"hit_t": 3.55, "green_t": 0.0}), "dur": 5.4,
+        "mood": "menace", "music_vol": 1.1, "fadein": 0.1, "anchor_off": -35,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.05 + t * 0.01, "focus": (110, 96)},
+                {"kind": "shake", "t0": 3.55, "t1": 4.1, "amp": 5}],
+        "actors": {
+            "rex": {"track": [(0, 160, False), (3.2, 160, False), (5.4, 160, True)],
+                    "blocks": [(0, 3.3, "idle"), (3.3, 4.3, "point"), (4.3, 5.4, "idle")],
+                    "faces": [(3.4, "happy", False)]},
+            "milo": {"track": [(0, 124, True), (5.4, 124, True)],
+                     "blocks": [(0, 5.4, "idle")],
+                     "faces": [(0.3, "wide", False), (3.6, "happy", False)]},
+        },
+        "dino": {"follow": "milo", "delay": 0.7, "xoff": -20, "enter": 1.6,
+                "roar": [(2.2, 2.8)], "hit_t": 3.55, "hit_x": 96},
+        "lines": [(0.4, "narr",
+                   "Then the bus found its true calling. Dinosaurs.")],
+        "fx": [{"kind": "impact", "t": 3.55, "x": 100, "y": 110, "invert": True},
+               {"kind": "blood", "t": 3.57, "x": 96, "y": 140},
+               {"kind": "stamp", "t0": 3.75, "t1": 5.3, "text": "K.O.", "scale": 10,
+                "x": 430, "y": 160, "color": (120, 255, 140)}],
+        "audio": [(2.95, "horn", 0.9), (3.3, "horn", 0.8), (3.2, "rumble", 0.8),
+                  (3.55, "boom", 1.0)]})
+    # 4) VOID-FINAL: portalerna multipliceras
+    sc.append({
+        "env": ("void", {}), "dur": 6.1, "mood": "mystery", "music_vol": 0.5,
+        "fadein": 0.1,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.014, "focus": (160, 96)},
+                {"kind": "shake", "t0": 4.8, "t1": 5.3, "amp": 3}],
+        "actors": {
+            "rex": {"track": [(0, 150, False), (6.1, 150, False)],
+                    "blocks": [(0, 6.1, "idle")],
+                    "faces": [(0.4, "wide", False), (3.9, "sad", False)]},
+            "milo": {"track": [(0, 176, False), (6.1, 176, False)],
+                     "blocks": [(0, 6.1, "idle")],
+                     "faces": [(0.4, "wide", False), (2.2, "sad", False)]},
+        },
+        "fx": [{"kind": "portal", "t0": 0.3, "t1": 6.1, "x": 120, "y": 96, "seed": 4},
+               {"kind": "portal", "t0": 0.6, "t1": 6.1, "x": 165, "y": 96, "seed": 5},
+               {"kind": "portal", "t0": 0.9, "t1": 6.1, "x": 210, "y": 96, "seed": 6},
+               {"kind": "stamp", "t0": 0.4, "t1": 2.0, "text": "MULTIVERSE.EXE",
+                "scale": 6, "x": 300, "y": 140},
+               {"kind": "stamp", "t0": 2.0, "t1": 4.2, "text": "NOT RESPONDING",
+                "scale": 6, "x": 300, "y": 300, "color": (255, 120, 100)}],
+        "lines": [(0.5, "narr",
+                   "Bad news. The raptors downloaded the portal app. Part two?")],
+        "audio": [(0.4, "sparkle", 0.5), (0.7, "sparkle", 0.5), (1.0, "sparkle", 0.5),
+                  (3.9, "riser", 0.5), (4.8, "boom", 0.6)]})
+    # 5) LOOPBAIT-KORT
+    sc.append({"env": ("vcard", {"big": "PORTAL", "subtitle": "FIGHT - part 2?",
+                                  "lines": ["the raptors have wifi",
+                                            "dino.exe downloaded",
+                                            "follow or get chased"],
+                                  "tone": (18, 42, 26)}),
+               "dur": 1.6, "fadein": 0.1, "mood": "sting", "music_vol": 1.2,
+               "audio": [(0.1, "pop", 0.6)]})
+    return sc
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ep", type=int, default=1)
@@ -1193,18 +1412,24 @@ def main():
     ap.add_argument("--tts", action="store_true")
     args = ap.parse_args()
 
-    if getattr(args, "vertical", False):
+    if getattr(args, "vertical", False) or args.ep == 910:
         globals()["VERT"] = True
         globals()["VERT_STAMPS_OUT"] = True
         globals()["OUTW"], globals()["OUTH"] = 1080, 1920
     if getattr(args, "tts", False):
         globals()["TTS_MODE"] = True
         print("   🎙 TTS MODE: tts/line00-NN.wav används som röster")
-    cast = build_cast95() if args.ep in (905,) else build_cast()
+    cast = (build_cast_rm() if args.ep == 910 else
+            build_cast95() if args.ep in (905,) else build_cast())
     if args.ep == 905:
         globals()["SERIES"] = "9-5"
         globals()["CAST95"] = True
-    if args.ep == 905 and getattr(args, "vertical", False):
+    if args.ep == 910:
+        globals()["SERIES"] = "PORTAL FIGHT"
+        globals()["TTS_DIR"] = "/home/user/pixeltube/tts910"
+    if args.ep == 910:
+        ep_fn = episode_910portal
+    elif args.ep == 905 and getattr(args, "vertical", False):
         ep_fn = episode_905v
     else:
         ep_fn = {1: episode_001, 2: episode_002, 3: episode_003, 905: episode_905}.get(args.ep, episode_001)
@@ -1272,7 +1497,7 @@ def main():
                                         "spiky")).voice_pitch
             if who == "narr" or who == "hood":
                 sp = "narr"
-            tts_path = f"/home/user/pixeltube/tts/line{len(tts_used):02d}.wav"
+            tts_path = f"{TTS_DIR}/line{len(tts_used):02d}.wav"
             if TTS_MODE and os.path.exists(tts_path):
                 import wave as _wav
                 with _wav.open(tts_path, "rb") as _wf:
@@ -1322,6 +1547,8 @@ def main():
         out = args.out
     elif args.ep == 905 and getattr(args, "vertical", False):
         out = "/home/user/pixeltube/out/nine-five-ep001-vertical.mp4"
+    elif args.ep == 910:
+        out = "/home/user/pixeltube/out/portal-fight-ep001-vertical.mp4"
     elif args.ep == 905:
         out = "/home/user/pixeltube/out/nine-five-ep001.mp4"
     else:
@@ -1335,8 +1562,10 @@ def main():
     # steg 1: bildrender till silent-mp4; ljudet muxas i steg 2
     pipe = subprocess.Popen(
         [ffmpeg, "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{OUTW}x{OUTH}",
-         "-r", str(FPSS * 2), "-i", "-", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-         "-preset", "medium", "-crf", "18", tmp_silent],
+         "-r", str(60 if VERT else FPSS * 2), "-i", "-", "-an", "-c:v", "libx264",
+         "-pix_fmt", "yuv420p",
+         "-preset", "slow" if VERT else "medium",
+         "-crf", "16" if VERT else "18", tmp_silent],
         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     lwins_all = {}
@@ -1345,9 +1574,10 @@ def main():
     for kk in range(len(scenes)):
         lwins_all.setdefault(kk, [])
 
-    nframes = int(total * FPSS)
+    SAMP = 60 if VERT else FPSS          # VERT = äkta 60fps-sampling (butter)
+    nframes = int(total * SAMP)
     for f in range(nframes):
-        tg = f / FPSS
+        tg = f / SAMP
         idx = 0
         for j, st in enumerate(scene_starts):
             if tg >= st:
@@ -1447,9 +1677,9 @@ def main():
             # 9:16-crop: 90x160 logiskt fönster som följer huvudpersonen (kort croppas aldrig)
             fx_anchor = 160
             try:
-                for a_nm in ("tom", "ren"):
+                for a_nm in ("rex", "tom", "ren"):
                     if a_nm in actors:
-                        fx_anchor = int(actors[a_nm].track.at(lt)[0])
+                        fx_anchor = int(actors[a_nm].track.at(lt)[0]) + s.get("anchor_off", 0)
                         break
             except Exception:
                 fx_anchor = 160
@@ -1479,6 +1709,14 @@ def main():
                     else:
                         draw_sub(img, text, who)
                     break
+        # HD-2D WOW-PASS (VERT @60fps): bloom+vignette+grain, chroma vid smällar
+        if VERT:
+            chroma = any(fx2.get("kind") == "impact" and abs(lt - fx2["t"]) < 0.35
+                         or fx2.get("kind") == "blood" and 0 <= lt - fx2["t"] < 0.5
+                         for fx2 in s.get("fx", []))
+            chroma = chroma or any(o2.get("kind") == "shake"
+                                   and o2["t0"] <= lt <= o2["t1"] for o2 in ops)
+            img = hi_post(img, f, chroma)
         # fades
         if s.get("fadein") and lt < s["fadein"]:
             p = lt / s["fadein"]
@@ -1486,8 +1724,9 @@ def main():
         if s.get("fadeout") and lt > s["dur"] - s["fadeout"]:
             p = max(0.0, (s["dur"] - lt) / s["fadeout"])
             img = Image.blend(Image.new("RGBA", img.size, (0, 0, 0, 255)), img, p)
-        pipe.stdin.write(img.convert("RGB").tobytes())
-        pipe.stdin.write(img.convert("RGB").tobytes())   # hold on twos -> 24fps
+        pipe.stdin.write(img.convert("RGB").tobytes())   # VERT: äkta 60fps (1 write/frame)
+        if not VERT:
+            pipe.stdin.write(img.convert("RGB").tobytes())   # landskap: on twos -> 24fps
         if f % 120 == 0:
             print(f"\r   renderar {100*f/nframes:5.1f}%", end="", flush=True)
     pipe.stdin.close(); pipe.wait()
@@ -1497,7 +1736,7 @@ def main():
     wav = out.replace(".mp4", ".wav")
     musicmod.save_wav16(wav, mix)
     subprocess.run([ffmpeg, "-y", "-i", tmp_silent, "-i", wav, "-c:v", "copy",
-                    "-c:a", "aac", "-b:a", "160k", "-shortest", out],
+                    "-c:a", "aac", "-b:a", "192k", "-shortest", out],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for junk in (tmp_silent, wav):
         try: os.remove(junk)
@@ -1505,8 +1744,9 @@ def main():
     size = os.path.getsize(out) / 1e6
     print(f"   ✅ KLART: {out} ({size:.1f} MB)")
     meta = {"title": (f"{SERIES} - Episode 001 - Day 9413" if args.ep == 905
-                      else f"{SERIES} - Episode {args.ep:03d}"), "seed": 301,
-            "madeForKids": False, "language": "en"}
+                      else (f"{SERIES} - EP001 - The Multiverse Objected" if args.ep == 910
+                            else f"{SERIES} - Episode {args.ep:03d}")),
+            "seed": 301, "madeForKids": False, "language": "en"}
     json.dump(meta, open(out.replace(".mp4", ".json"), "w"), indent=2)
 
 

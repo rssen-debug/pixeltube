@@ -643,3 +643,24 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
 - **RWJ-receptet**: hook = faktisk countdown ("five minutes to live"), mid-scene gag
   (Dave vinkar/ignoreras/går hängd), berättaren hinner precis klart före BOOM,
   void-tystnad som reset, twist = retentions-krok till part 2 ("livet var tutorialn").
+
+## 10e. PORTAL FIGHT ep001 — R&M-look + 60fps HD-2D-pipeline (2026-09-16)
+- **RICK&MORTY-LOOKEN**: `eyes_kind="rm"` i make_head_images — stora vita ovaler +
+  pinprick-pupill som vandrar med gaze (gaze dx x2 i RM-grenen). Inga bryn/iris/glans.
+  HAIR["short"] = rund mopp (Milo). Cast: build_cast_rm() (rex=blå spiky+labbrock,
+  milo=gul tee, scale_y 0.94). Befintliga serier orörda.
+- **Riktig 60fps VERT**: `SAMP = 60 if VERT` (sampling, ej duplikat), 1 write/frame,
+  ffmpeg -r 60, preset slow + CRF 16 (landskap orört: 12fps x2 -> 24fps medium/18).
+- **hi_post(img, f, chroma)** (VERT automatiskt): bloom (trok 200, styrka 0.38 — 165/0.55
+  NUKADE vita kavajer), vignette, chunky NEAREST-grain (sigma 3.8 — hög frekvens blåser
+  upp x264: 64MB -> 44MB efter CRF19-reencode), kromatisk aberration vid impact/shake.
+- **portal(x,y,t,seed)**: pulserande grön 3-ring + swirl-damm, ritas BAKOM aktörer
+  (fx kind "portal" i pre-actor loopen). Bloom gör den magisk.
+- **E.Dino**: T-rex (76x48, 2 stegfaser x gap x K.O.-variant). scene["dino"] =
+  {follow, delay, xoff, enter, roar[(t0,t1)], hit_t, hit_x}: följer aktörs track med
+  fördröjning, "enter" = sprintar in från -80, downed = liggande+X-öga+stjärnor.
+- **anchor_off** per scen: VERT-croppen förskjuts så jagare+flyende+portal alla syns
+  (t.ex. -48 i jaktscener). UTAN det försvinner dinon utanför crop-fönstret!
+- **scene["tint"]** = universum-filter (PIL blend 0.22 före aktörer).
+- **TTS_DIR** per ep (tts/, tts910/). Render: `python3 v2make.py --ep 910 --tts`.
+- 44MB master -> reencode CRF19 preset slow som leverans. Fil: portal-fight-ep001-vertical.mp4 (30.6s).
