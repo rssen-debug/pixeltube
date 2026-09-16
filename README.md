@@ -5,9 +5,24 @@ Every frame is drawn by code, every sound is synthesized by code, and the
 pixel voices are gibberish bleeps (Banjo-Kazooie style) with subtitles
 translating what the characters "say". No GPU, no assets, no footage.
 
-**The series:** two episodic agents – **Doris** the pink dinosaur and
-**Rico** the monkey – take on absurd missions: crystal heists, beach
-fortress defenses, snowball-drone unions and cake-vault break-ins.
+**The series:** mission-comedy agents – **Doris** the overconfident pink
+dinosaur, **Rico** the greedy monkey, cowardly bunnies, snack-obsessed
+gliders – cause their own problems in every episode.
+
+**v6 – "The Six Laws" update (anime-retention research):**
+1. **Cold opens** – every episode starts mid-chaos, never with intros
+2. **Flaw engine** – plots are caused by personality (`story.FLAWS`), not luck
+3. **Running mystery** – the red spiral & a silhouette ("The Watcher") hide in
+   scenes (`mystery: true`), never explained
+4. **Escalation tiers 1-5** – batch walks seeds up from petty crime to a
+   shattered moon (T5 season finale)
+5. **Cliffhanger endings** – final scene always opens the next question
+6. **Show don't explain** – punchlines are animations: fire-breath 🔥,
+   faceplants 🤕, shock-freezes 😱, power-poses 💪 (+ anger veins, dizzy
+   stars, sweat drops, music notes as overlays)
+
+New props: portal, torch, UFO, boulder, sword-in-stone – 22 total.
+Full developer manual: **AGENTREAD.md**.
 
 ---
 
@@ -17,7 +32,7 @@ fortress defenses, snowball-drone unions and cake-vault break-ins.
 pip install -r requirements.txt
 
 # Render one episode (pixel-bleep voices, no TTS needed)
-python3 make_video.py --seed 77 --story 6 --scale 4 --backend none
+python3 make_video.py --seed 77 --story 7 --scale 4 --backend none   # T5 finale!
 
 # A whole season
 python3 batch.py --count 10 --backend none

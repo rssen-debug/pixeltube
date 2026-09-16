@@ -23,9 +23,9 @@ def main():
     ap = argparse.ArgumentParser(description="Massproducera pixelavsnitt.")
     ap.add_argument("--count", type=int, default=3)
     ap.add_argument("--start-seed", type=int, default=None)
-    ap.add_argument("--lang", choices=["sv", "en"], default="sv")
+    ap.add_argument("--lang", choices=["sv", "en"], default="en")
     ap.add_argument("--scale", type=int, default=4)
-    ap.add_argument("--story", type=int, default=None, help="Lås sagomall (0-6)")
+    ap.add_argument("--story", type=int, default=None, help="Lås säsongsmall (0-9, eskalerande)")
     ap.add_argument("--cast", default=None, help="Fast rollista, t.ex. 'doris,apan'")
     ap.add_argument("--llm", action="store_true", help="Låt Qwen skriva varje avsnitt")
     ap.add_argument("--backend", default="auto")
@@ -46,7 +46,7 @@ def main():
         if args.llm:
             cmd += ["--llm"]
         else:
-            story_idx = args.story if args.story is not None else seed % 7
+            story_idx = args.story if args.story is not None else seed % 10
             cmd += ["--story", str(story_idx)]
         if args.cast:
             cmd += ["--cast", args.cast]

@@ -21,7 +21,8 @@ CHAR_SCALE = 2
 ACTOR_GAP = 52
 
 NEAREST = getattr(getattr(Image, "Resampling", Image), "NEAREST")
-ACTIONS = ("walk", "run", "jump", "dance", "spin", "hit", "duck", "wave", "sleep")
+ACTIONS = ("walk", "run", "jump", "dance", "spin", "hit", "duck", "wave", "sleep",
+           "fire", "shock", "fall", "flex")
 LAND = frozenset(["forest", "night", "beach", "space", "snow", "candy"])
 
 
@@ -187,6 +188,107 @@ FAGEL_B = _rows("""
 ..kkk..
 .kk.kk.
 .k...k.
+""")
+
+# --- Mysteriet: "The Watcher" – en liten mörk figur i bakgrunden ---
+WATCHER = _rows("""
+...kkk...
+..kkkkk..
+..kkkkk..
+..k.k.k..
+..kkkkk..
+..kkkkk..
+..kkkkk..
+.kkkkkkk.
+kkkkkkkkk
+""")
+
+# --- Nya props ---
+TORCH = _rows("""
+...yy...
+..yoyy..
+..yooy..
+..yyyy..
+...kk...
+....k...
+....k...
+....k...
+....k...
+...kk...
+""")
+PORTAL = _rows("""
+.....pppppp.....
+...ppvvvvvvpp...
+..pvccccccccvp..
+.pvccggggggccvp.
+pvcgckkkkkcgcvp
+pvcgckkkkkcgcvp
+pvcgckkkkkcgcvp
+pvcgckkkkkcgcvp
+.pvccggggggccvp.
+..pvccccccccvp..
+...ppvvvvvvpp...
+.....pppppp.....
+""")
+UFO = _rows("""
+.....dd.....
+...dddddd...
+..ssssssss..
+.ssssssssss.
+swwswwswwswws
+..ssssssss..
+.....ss.....
+""")
+BOULDER = _rows("""
+....gggggg....
+..gggggggggg..
+.ggccggggcggg.
+gggcgggggggggg
+ggggggcggccggg
+gggggggggggggg
+.ggcggggcgggg.
+..gggggggggg..
+....gggggg....
+""")
+SWORD = _rows("""
+...yy...
+..yyyy..
+..yggk..
+..gggg..
+..kggg..
+...g....
+...g....
+...g....
+...g....
+..gg....
+..gg....
+.kggk...
+""")
+
+# --- Uttrycks-märken (humor genom överdrift!) ---
+_NOTE = _rows("""
+....##..
+....##..
+....###.
+....#...
+....#...
+.##.#...
+#####...
+.###....
+""")
+_ANGERX = _rows("""
+#...#
+.#.#.
+..#..
+.#.#.
+#...#
+""")
+_SWEAT = _rows("""
+..c..
+..cc.
+.ccc.
+.ccc.
+..c..
 """)
 
 # ---------------------------------------------------------------------------
@@ -561,6 +663,21 @@ PROPS = {
                           "ground", LAND, ["blomma", "blommor", "flower"]),
     "regnbåge": _prop_entry(lambda r: _rainbow_img(), "sky-static",
                             {"forest", "beach", "snow", "candy"}, ["regnbåge", "rainbow"]),
+    "fackla": _prop_entry(lambda r: _sprite_image(TORCH, {"o": (255, 150, 40), "y": (255, 228, 120),
+                                                          "k": (110, 72, 40)}),
+                          "ground", LAND, ["torch", "fackla"]),
+    "portal": _prop_entry(lambda r: _sprite_image(PORTAL, {"p": (150, 80, 220), "v": (95, 45, 160),
+                                                           "c": (80, 220, 235), "g": (140, 240, 170),
+                                                           "k": (18, 14, 40)}),
+                          "ground", LAND, ["portal", "gateway", "wormhole"]),
+    "ufo": _prop_entry(lambda r: _sprite_image(UFO, {"d": (140, 230, 255), "s": (200, 205, 215),
+                                                     "w": (255, 225, 90)}),
+                       "ground", {"space", "night"}, ["ufo", "flying saucer", "mothership"]),
+    "bumling": _prop_entry(lambda r: _sprite_image(BOULDER, {"g": (150, 152, 160), "c": (105, 106, 115)}),
+                           "ground", LAND, ["boulder", "bumling", "big rock", "rocks"]),
+    "svärd": _prop_entry(lambda r: _sprite_image(SWORD, {"y": (255, 205, 80), "g": (198, 200, 208),
+                                                         "k": (120, 122, 135)}),
+                         "ground", LAND, ["svärd", "sword", "blade"]),
 }
 
 NAME_ALIASES = {"mushroom": "svamp", "house": "hus", "rocket": "raket", "snowman": "snögubbe",
@@ -568,7 +685,9 @@ NAME_ALIASES = {"mushroom": "svamp", "house": "hus", "rocket": "raket", "snowman
                 "icecream": "glass", "ice cream": "glass", "balloon": "ballong", "star": "stjärna",
                 "gem": "ädelsten", "diamond": "ädelsten", "crystal": "ädelsten",
                 "chest": "kista", "treasure": "kista", "berries": "bär", "frog": "groda",
-                "flower": "blomma", "rainbow": "regnbåge"}
+                "flower": "blomma", "rainbow": "regnbåge",
+                "torch": "fackla", "portal": "portal", "wormhole": "portal",
+                "ufo": "ufo", "boulder": "bumling", "rock": "bumling", "sword": "svärd"}
 
 
 def normalize_prop_names(props):
@@ -757,7 +876,7 @@ class Scene:
     """En levande pixelscen. actors = [(Character, action|None), ...] (max 3)."""
 
     def __init__(self, setting="forest", seed=0, actors=None, text=None,
-                 props=None, reaction=None):
+                 props=None, reaction=None, mystery=None):
         self.setting = setting if setting in SCHEMES else "forest"
         self.rng = random.Random(seed)
         self.pal = SCHEMES[self.setting]
@@ -768,6 +887,7 @@ class Scene:
             ch, act = (a if isinstance(a, tuple) else (a, None))
             self.actors.append((ch, act if act in ACTIONS else None))
         self.reaction = reaction if reaction in REACTIONS else None
+        self.mystery_wanted = mystery
 
         names = normalize_prop_names(props)
         if not names and text:
@@ -783,6 +903,18 @@ class Scene:
         self._build_particles()
         self._setup_animals(names)
         self._build_reaction()
+
+        # uttrycks-tillbehör (musiknoter, ilskemärke, svett, stjärna, !!)
+        self.note_img = _sprite_image(_NOTE, {"#": (110, 220, 255)})
+        self.note_img = self.note_img.resize((self.note_img.width * 2, self.note_img.height * 2), NEAREST)
+        self.anger_img = _sprite_image(_ANGERX, {"#": (255, 70, 90)})
+        self.anger_img = self.anger_img.resize((self.anger_img.width * 2, self.anger_img.height * 2), NEAREST)
+        self.sweat_img = _sprite_image(_SWEAT, {"c": (150, 205, 255)})
+        self.sweat_img = self.sweat_img.resize((self.sweat_img.width * 2, self.sweat_img.height * 2), NEAREST)
+        self.star_img = _sprite_image(_STAR, {"#": (255, 225, 90)})
+        self.star_img = self.star_img.resize((self.star_img.width * 2, self.star_img.height * 2), NEAREST)
+        self.bang_bubble = _bubble(_BANG, (232, 60, 60))
+        self._build_mystery()
 
         self.bird = bool(self.pal.get("bird")) and self.rng.random() < 0.85
         self.bird_y = self.rng.randint(30, 62)
@@ -954,6 +1086,29 @@ class Scene:
         self.zz = _sprite_image(_ZED, {"#": (205, 225, 255)})
         self.zz = self.zz.resize((self.zz.width * 2, self.zz.height * 2), NEAREST)
 
+    def _build_mystery(self):
+        """'The Watcher' – seriens löpande mysterium. Liten figur, långt bort."""
+        self.watcher = None
+        wanted = bool(self.mystery_wanted) if self.mystery_wanted is not None \
+            else self.rng.random() < 0.12
+        if wanted:
+            wimg = _sprite_image(WATCHER, {"k": (16, 12, 28)})
+            self.watcher = {"img": wimg, "x": self.rng.randint(240, W - 20),
+                            "ph": self.rng.uniform(0, 6.28)}
+
+    def _draw_watcher(self, img, t):
+        if not self.watcher:
+            return
+        w = self.watcher
+        y = 120 - w["img"].height                     # horisonten, långt bort
+        img.paste(w["img"], (w["x"], y), w["img"])
+        glow = 0.5 + 0.5 * math.sin(t * 0.8 + w["ph"])
+        if glow > 0.3:                                # ögonen blinkar svagt rött
+            v = int(110 + 140 * glow)
+            d = ImageDraw.Draw(img)
+            d.point((w["x"] + 2, y + 3), fill=(v, 36, 46))
+            d.point((w["x"] + 4, y + 3), fill=(v, 36, 46))
+
     # -- per frame ---------------------------------------------------------
     def _paste_wrapped(self, base, layer, dx):
         ox = int(dx) % W
@@ -1093,6 +1248,28 @@ class Scene:
                     if zy > 4:
                         img.paste(self.zz, (int(x + ch.w - 2 + k * 7 +
                                                 3 * math.sin(tt + k)), zy), self.zz)
+            elif act == "fire":                     # 💨 eld-superkraft!
+                tilt = -9.0
+                fr = "B" if int(tt * 8) % 2 == 0 else "A"
+            elif act == "shock":                      # 😱 chock-hopp bakåt
+                c = (tt % 1.2) / 1.2
+                pop_ = math.sin(c * math.pi)
+                xoff -= int(8 * pop_)
+                feet -= int(6 * pop_)
+                squash = 1.0 + 0.15 * pop_
+            elif act == "fall":                       # 🤕 faceplant + yrsel
+                c = (tt % 1.9) / 1.9
+                if c < 0.22:
+                    p2 = c / 0.22
+                    xoff += int(9 * p2)
+                    feet -= int(5 * math.sin(p2 * math.pi))
+                    tilt = -78.0 * p2 * p2
+                else:
+                    tilt = -78.0
+            elif act == "flex":                       # 💪 brösta sig + gnistra
+                bounce = abs(math.sin(tt * 5.0))
+                squash = 1.0 + 0.10 * bounce
+                tilt = -5.0 * math.sin(tt * 5.0)
             else:  # walk / None
                 if ch.hopping:
                     feet -= abs(int(2 * math.sin(tt * 7)))
@@ -1109,6 +1286,44 @@ class Scene:
             img.paste(spr, (px, py), spr)
             if lunge > 6:
                 img.paste(self.pow, (x + ch.w + 2, int(feet - ch.h * 0.75)), self.pow)
+
+            # --- humor-overlayar: reagera visuellt, förklara aldrig! ---
+            head_x, head_y = px + spr.width - 4, py + spr.height // 3
+            if act == "dance":
+                ny = max(1, py - self.note_img.height - 2 + int(2 * math.sin(tt * 3)))
+                img.paste(self.note_img, (head_x + int(3 * math.sin(tt * 2.5)), ny), self.note_img)
+            elif act == "hit":
+                img.paste(self.anger_img, (head_x - 8, max(1, py - self.anger_img.height)), self.anger_img)
+            elif act == "fire":
+                ph2 = (tt % 1.3) / 1.3
+                r2 = 5 + int(24 * ph2)
+                fx = head_x + 2 + r2 // 2
+                fy = head_y + int(2 * math.sin(ph2 * 6.28))
+                for rr, cf in ((r2 + 4, (255, 120, 40, 80)), (r2, (255, 92, 36, 160)),
+                               (max(2, r2 * 2 // 3), (255, 175, 70, 205)),
+                               (max(1, r2 // 3), (255, 240, 170, 230))):
+                    d.ellipse([fx - rr, fy - rr * 2 // 3, fx + rr, fy + rr * 2 // 3], fill=cf)
+            elif act == "shock":
+                c2 = (tt % 1.2) / 1.2
+                if 0.1 < c2 < 0.75:
+                    by2 = max(1, py - self.bang_bubble.height + int(1.5 * math.sin(tt * 20)))
+                    img.paste(self.bang_bubble, (px + spr.width - 2, by2), self.bang_bubble)
+                if c2 > 0.5:
+                    img.paste(self.sweat_img, (px + 1, max(1, head_y - 6)), self.sweat_img)
+            elif act == "fall":
+                c2 = (tt % 1.9) / 1.9
+                if c2 >= 0.22:
+                    d.ellipse([px - 4, GROUND_Y - 1, px + spr.width + 4, GROUND_Y + 5],
+                              fill=(0, 0, 0, 60))
+                    for k in range(3):                # yr-stjärnor i omloppsbana
+                        a = tt * 5.0 + k * 2.094
+                        sx = int(head_x - 8 + 13 * math.cos(a))
+                        sy = int(py - 2 + 5 * math.sin(a))
+                        d.rectangle([sx, sy, sx + 2, sy + 2], fill=(255, 230, 120, 220))
+            elif act == "flex":
+                blink2 = int(tt * 4) % 2 == 0
+                sy2 = max(1, py - self.star_img.height + 2 + int(2 * abs(math.sin(tt * 5))))
+                img.paste(self.star_img, (head_x + (2 if blink2 else 6), sy2), self.star_img)
 
         if self.bubble_img and self.actors and 0.55 <= t <= 3.0:
             ch, _ = self.actors[0]
@@ -1166,6 +1381,7 @@ class Scene:
             self._draw_bird(img, t)
         if self.hills is not None:
             self._paste_wrapped(img, self.hills, t * 3.0)
+        self._draw_watcher(img, t)
         if self.pal.get("sea"):
             self._draw_sea(img, t)
         if self.trees is not None:

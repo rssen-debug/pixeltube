@@ -1,30 +1,54 @@
 # -*- coding: utf-8 -*-
 """
-story.py – Episode templates: 16+ mission-comedy, fully verb-driven.
+story.py – PIXEL UNIVERSE v6: mission-comedy template system.
 
-COHERENCE RULES:
-  • Every episode has a fixed cast. Characters are identical in every scene
-    and every episode – engine.resolve_character() guarantees it.
-  • VERBS IN THE TEXT DRIVE THE ANIMATION:
-      "Doris jumps"               -> Doris plays jump
-      "Rico ducked"               -> Rico plays duck
-      "Rico punched the drone"    -> Rico plays hit (+ POW star)
-      "They sprinted together"    -> EVERYONE plays run
-  • Templates have structure: setup (meet/mission) -> middle (problems,
-    chaos) -> end (victory dance / sleep).
+RESEARCH-DRIVEN STRUCTURE (top-anime retention science, applied to 8-bit):
+  1. COLD OPEN   – every episode opens mid-chaos. No introductions ever.
+  2. FLAW ENGINE – every character has ONE flaw that creates the conflict
+                   themselves (overconfidence, greed, cowardice...). Luck
+                   never drives the plot; personality does.
+  3. MYSTERY     – "The Watcher" / the red spiral appears as unexplained
+                   clues (scene flag mystery=True → silhouette on screen).
+  4. ESCALATION  – templates carry a tier (1-5). batch.py walks seeds up
+                   the tiers, so a season rises from petty crime (t1) to
+                   a broken moon (t5).
+  5. CLIFFHANGER – the final scene always asks a new question or lands an
+                   absurd reveal, built for loops and next-episode swipes.
+  6. SHOW, DON'T EXPLAIN – punchlines arrive as extreme animation (fall,
+                   shock, flex, fire) instead of dialogue.
+
+VERB-DRIVEN ANIMATION (parse_actions reads the text as the shot list):
+  jump/run/dance/spin/hit/duck/wave/sleep/walk  +  NEW: fire/shock/fall/flex
 """
 import random
 
 NAMES = ["leo", "nova", "trix", "puff", "milo", "zia"]
 SETTINGS = ["forest", "night", "beach", "space", "snow", "underwater", "candy"]
 
-# verb -> action. Synonyms welcome; cooler writing = better episodes.
+# --- The flaw engine: personality that CAUSES the plot ---------------------
+FLAWS = {
+    "doris": "overconfidence – believes every plan is foolproof, especially hers",
+    "apan": "greed – cannot walk past anything shiny, edible or both",
+    "bosse": "laziness – will invent elaborate systems to avoid work",
+    "boris": "grumpiness – trusts no plan, yet always follows them anyway",
+    "leo": "clumsiness – great instincts, terrible landing gear",
+    "nova": "stubbornness – would argue with a locked door",
+    "trix": "perfectionism – measures twice, panics once",
+    "zia": "naivety – believes everyone, including obvious villains",
+    "puff": "snack obsession – all priorities rank below food",
+    "milo": "drame queen tendencies – narrates his own trauma in real time",
+    "kanin": "cowardice – screams first, saves the day accidentally",
+    "kurre": "cowardice – professional at hiding, accidental hero",
+    "stina": "recklessness – jumps before looking, looks great doing it",
+}
+
+# verb -> action (whole-word matching; write verbs near the name!)
 VERBS = {
     "jump":  ["jump", "jumps", "jumped", "leap", "leaps", "leaped", "leapt",
               "bounced", "hopped"],
     "run":   ["run", "runs", "ran", "rush", "rushes", "rushed", "sprint",
               "sprints", "sprinted", "dash", "dashes", "dashed", "bolt",
-              "bolts", "bolted", "fled", "charge", "charged"],
+              "bolts", "bolted", "fled", "charge", "charged", "charge,"],
     "dance": ["dance", "dances", "danced", "boogie", "boogied", "groove", "grooved"],
     "spin":  ["spin", "spins", "spun", "spinning", "twirl", "twirls", "twirled"],
     "hit":   ["hit", "hits", "punch", "punches", "punched", "smack", "smacked",
@@ -32,21 +56,26 @@ VERBS = {
     "duck":  ["duck", "ducks", "ducked", "dodged", "crouch", "crouched"],
     "wave":  ["wave", "waves", "waved", "saluted", "salute"],
     "sleep": ["sleep", "sleeps", "slept", "snooze", "snoozed", "napped",
-              "snores", "snored", "snuck*never"],
+              "snores", "snored"],
     "walk":  ["walk", "walks", "walked", "sneak", "sneaks", "sneaked",
               "snuck", "stroll", "strolled", "slunk", "crept"],
+    # --- v6 superpowers & comedy beats ---
+    "fire":  ["firebreathes", "blasts", "blasted", "roasts", "ignites",
+              "incinerates", "scorches"],
+    "shock": ["freezes", "froze", "gasp", "gasps", "gasped", "yelps", "yelped", "stunned"],
+    "fall":  ["trips", "tripped", "faceplants", "faceplanted", "slips",
+              "topples", "toppled", "tumbles", "tumbled", "flops", "stumbled"],
+    "flex":  ["flexes", "flexed", "poses", "posed", "smirks", "struts", "strutted"],
 }
 GROUP_WORDS = [" they ", " both ", " everyone ", " the duo ", " the two ",
                " together", " duo "]
 
 
 def parse_actions(text, cast_names):
-    """Find who does what in a line. Returns {cast_name: action|None}.
+    """Who does what in this line? Returns {cast_name: action|None}.
 
-    Matches WHOLE words ("wound" never counts as "run") and picks the verb
-    standing CLOSEST to the character's name – so "'RUN,' yelled Doris...
-    Rico ducked" assigns run->Doris, duck->Rico. Group words (they, both,
-    together) apply the verb to every cast member without one.
+    Whole-word matching, nearest-verb-to-name wins within a 6-word radius,
+    group words (they/both/together) hand the verb to the rest of the cast.
     """
     import re
 
@@ -60,6 +89,8 @@ def parse_actions(text, cast_names):
             if w in verbs:
                 verb_at.setdefault(i, action)
 
+    # Engelsk grammatik: verbet bör HELST komma EFTER namnet ("Doris spun").
+    # Lika avstånd -> framåtriktat verb vinner; annars närmast vinner.
     found = {}
     for name in cast_names:
         found[name] = None
@@ -70,8 +101,9 @@ def parse_actions(text, cast_names):
                 continue
             for vi, action in verb_at.items():
                 dist = abs(vi - iw)
-                if dist <= 6 and (best is None or dist < best[0]):
-                    best = (dist, action)
+                key = (dist, 0 if vi >= iw else 1)
+                if dist <= 6 and (best is None or key < best[0]):
+                    best = (key, action)
         if best:
             found[name] = best[1]
 
@@ -84,132 +116,32 @@ def parse_actions(text, cast_names):
 
 
 # ---------------------------------------------------------------------------
-# MISSION TEMPLATES – every verb in the text animates a character.
-# Settings: forest, night, beach, space, snow, underwater, candy
-# Reactions: ! ? ♥ ★
-# Props keywords: gem, chest, rocket, snowman, fish, crab, shell, cake,
-#                 ice cream, balloon, star, berries, frog, flower, rainbow,
-#                 mushroom, house
+# SEASON 1 – escalation tiers 1-5. EVERY scene text is the shot list.
+# Scene flags: reaction (! ? ♥ ★) · mystery (draws The Watcher) · props
 # ---------------------------------------------------------------------------
 TEMPLATES = [
+    # ---------------- TIER 1: petty crime, huge egos ----------------
     {
-        "title": "The Crystal Heist", "cast": ["doris", "apan"],
+        "title": "Bank Job Gone Bongo", "tier": 1, "cast": ["doris", "apan"],
         "scenes": [
-            {"setting": "beach",
-             "text": "03:00 hours. Rico spotted the glowing gem first - someone hid it in a shell by the sea.",
-             "reaction": "!", "props": "ädelsten, snäcka"},
-            {"setting": "beach",
-             "text": "'Back off, it's mine,' grunted Doris, but Rico dashed ahead, faster than the tide."},
             {"setting": "forest",
-             "text": "They sprinted through the jungle together, past vines and one very offended frog.",
-             "props": "groda, svamp"},
+             "text": "'DROP THE WALRUS!' Doris sprinted through the pines with the loot. Rico tripped on the getaway rope. Obviously."},
             {"setting": "forest",
-             "text": "Doris leapt onto the crystal platform. Rico ducked as the alarm lasers woke up. Classic Tuesday."},
+             "text": "'One instruction: do not touch the red vine,' said Doris. Rico flexed at it anyway. The alarm agreed."},
             {"setting": "forest",
-             "text": "Rico punched the security drone right in its smug little face. POW."},
-            {"setting": "night",
-             "text": "Mission complete. They danced on the rooftop until the moon went to sleep.",
-             "reaction": "★"},
-        ],
-    },
-    {
-        "title": "Deep Cover: Operation Splash", "cast": ["doris", "boris"],
-        "scenes": [
-            {"setting": "beach",
-             "text": "Boris had one job: make the crab talk. The crab was not in the mood.",
-             "reaction": "?", "props": "krabba"},
-            {"setting": "beach",
-             "text": "'We do it the fun way,' said Doris, and jumped straight off the dock. SPLASH."},
-            {"setting": "underwater",
-             "text": "Under the waves they sneaked past the fish patrol together. Total silence. Ish.",
-             "props": "fisk"},
-            {"setting": "underwater",
-             "text": "A gold fish spun three times: the secret signal. Boris waved back like a true professional.",
-             "props": "fisk"},
-            {"setting": "underwater",
-             "text": "Doris smacked the lava-eel lamp into darkness. Beautiful, professional darkness."},
-            {"setting": "night",
-             "text": "Report filed. They both slept like rocks. Classified rocks."},
-        ],
-    },
-    {
-        "title": "Neon Jungle Run", "cast": ["leo", "nova"],
-        "scenes": [
-            {"setting": "night",
-             "text": "Midnight in the neon jungle. Nova stretched. Leo held the map upside down again."},
-            {"setting": "forest",
-             "text": "'RUN!' They sprinted through the pines together as the alarm howled behind them."},
-            {"setting": "forest",
-             "text": "Leo leapt the ravine. Nova spun through the laser web. Nobody even blinked."},
-            {"setting": "forest",
-             "text": "The mushroom guards formed a wall. Nova bonked the biggest one. End of discussion.",
+             "text": "The mushroom guards charged. Doris blasted them with a sneeze of pure fire. New trick. Do not ask.",
              "props": "svamp"},
+            {"setting": "forest",
+             "text": "They bolted through the ravine together, screaming like professionals."},
+            {"setting": "night", "mystery": True,
+             "text": "High above the pines, a small dark figure watched them celebrate. It took notes."},
             {"setting": "night",
-             "text": "They danced under the stars. Victory rhythm. Zero shame.", "reaction": "★"},
-            {"setting": "night",
-             "text": "Then they both slept. Even legends need eight hours."},
-        ],
-    },
-    {
-        "title": "Frost Protocol", "cast": ["kurre", "stina"],
-        "scenes": [
-            {"setting": "snow",
-             "text": "Rule one of the Frost Protocol: look adorable, act unstoppable. Ash and Pix wrote it."},
-            {"setting": "snow",
-             "text": "The snowman was obviously bait. Pix waved at it politely. Ash was not fooled.",
-             "props": "snögubbe"},
-            {"setting": "snow",
-             "text": "Snowball drones incoming! They dashed between the pines together, ears flat in the wind."},
-            {"setting": "snow",
-             "text": "Ash ducked. A snowball screaming overhead hit a pine instead. Splat."},
-            {"setting": "snow",
-             "text": "Pix leapt and smacked the last drone clean out of the sky. That is a ten."},
-            {"setting": "snow",
-             "text": "Protocol complete. They both snoozed in a frozen high-five position."},
-        ],
-    },
-    {
-        "title": "Space Riot", "cast": ["puff", "milo"],
-        "scenes": [
-            {"setting": "night",
-             "text": "A rocket crashed the garden party. Milo saluted. Puff asked what the red button does.",
-             "props": "raket", "reaction": "?"},
-            {"setting": "space",
-             "text": "Zero gravity. They spun together like two confused galaxies."},
-            {"setting": "space",
-             "text": "The moon-cats guarded the star gem. Puff danced at them. Nobody knows why. It worked.",
-             "props": "ädelsten"},
-            {"setting": "space",
-             "text": "Milo sneaked in and grabbed the gem. Stealth level: professional."},
-            {"setting": "space",
-             "text": "They bolted back to the rocket as the moon-cats screamed in meow-minor. Together. Fast."},
-            {"setting": "night",
-             "text": "Home again. They both slept while the gem kept the night light on.",
+             "text": "Then the vault heaved open by itself. Inside: a map with BOTH their faces on it. 'Reload,' said Rico.",
              "reaction": "★"},
         ],
     },
     {
-        "title": "Midnight Snack Heist", "cast": ["trix", "zia"],
-        "scenes": [
-            {"setting": "candy",
-             "text": "The Cake Vault. Trix studied the blueprints. Zia studied a napkin. Perfect team.",
-             "reaction": "?", "props": "tårta"},
-            {"setting": "candy",
-             "text": "Alarm! They rushed between the sugar hills together as the sirens went off."},
-            {"setting": "candy",
-             "text": "Trix ducked under the caramel laser. Zia did not. Zia is fine. Zia is sticky."},
-            {"setting": "candy",
-             "text": "One guard cake blocked the exit. Zia punched it into confetti. Delicious confetti.",
-             "props": "tårta"},
-            {"setting": "candy",
-             "text": "They danced out with the cake held high. The rainbow applauded silently.",
-             "props": "regnbåge"},
-            {"setting": "night",
-             "text": "Cake eaten. Crumbs everywhere. They both slept like tiny criminals. The good kind."},
-        ],
-    },
-    {
-        "title": "The Beach Break-In", "cast": ["doris", "apan"],
+        "title": "The Beach Break-In", "tier": 1, "cast": ["doris", "apan"],
         "scenes": [
             {"setting": "beach",
              "text": "Rico's coconut fortress was under attack. The enemy: one extremely smug crab.",
@@ -223,11 +155,173 @@ TEMPLATES = [
             {"setting": "beach",
              "text": "Victory. They danced on the ruins of the fortress until the sun gave up."},
             {"setting": "night",
-             "text": "They both slept on the beach. The crab guards the ruins now. Long live the crab.",
+             "text": "They both slept on the beach. In the tide, something enormous learned to knock. Three slow knocks.",
+             "reaction": "★"},
+        ],
+    },
+    # ---------------- TIER 2: the pattern appears ----------------
+    {
+        "title": "The Crab Uprising", "tier": 2, "cast": ["doris", "apan"],
+        "scenes": [
+            {"setting": "beach",
+             "text": "Invasion at dawn. A thousand crabs clicked in perfect sync. Rico smiled: 'Finally, a fair fight.'",
+             "props": "krabba"},
+            {"setting": "beach",
+             "text": "Doris charged the shell-wall. Rico ducked under a flying crab. Air support was NOT requested."},
+            {"setting": "beach",
+             "text": "The Crab King raised a golden claw. Rico bowed so fast he faceplanted into the sand."},
+            {"setting": "beach",
+             "text": "'DIPLOMACY FAILED!' They dashed across the sand together, threading snapping claws."},
+            {"setting": "beach", "mystery": True,
+             "text": "On the King's throne: the spiral symbol from the vault map. Doris froze solid. '...Not again.'"},
+            {"setting": "night",
+             "text": "Back at camp they both slept badly. The ocean knocked three times, politely, and waited for an answer.",
+             "reaction": "★"},
+        ],
+    },
+    {
+        "title": "Zero-G Snack Protocol", "tier": 2, "cast": ["puff", "milo"],
+        "scenes": [
+            {"setting": "night",
+             "text": "Milo pressed the red button. In his defense, it said 'Do Not Press For Free Snacks.'",
+             "props": "raket", "reaction": "?"},
+            {"setting": "space",
+             "text": "Zero gravity. Puff gasped so hard he spun backwards into the snack cupboard. Priorities."},
+            {"setting": "space",
+             "text": "The vault gem drifted past. Milo leapt, missed, and kicked off the ceiling like a legend.",
+             "props": "ädelsten"},
+            {"setting": "space",
+             "text": "Laser grid! They spun through the gaps together, leaving two perfect holes in the smoke."},
+            {"setting": "space", "mystery": True,
+             "text": "Through the window: a cloaked figure on the moon's rim, waving slowly. Nobody waves that slow."},
+            {"setting": "night",
+             "text": "They crashed home with the gem. It hummed a lullaby. The moon hummed back on the same frequency.",
+             "reaction": "★"},
+        ],
+    },
+    # ---------------- TIER 3: organized weirdness ----------------
+    {
+        "title": "Frost Protocol II: Union Break", "tier": 3, "cast": ["kurre", "stina"],
+        "scenes": [
+            {"setting": "snow",
+             "text": "6 AM. The snowball drones picketed the fortress. Their signs read: 'THROW YOURSELF.'"},
+            {"setting": "snow",
+             "text": "Ash crouched behind a snowman, urgently blending in. Pix strutted straight up to the union boss.",
+             "props": "snögubbe"},
+            {"setting": "snow",
+             "text": "Negotiations exploded. They dashed between the launchers together as the sky turned white."},
+            {"setting": "snow",
+             "text": "Pix smacked the biggest drone into surrender mode. Ash yelped from inside his snowman."},
+            {"setting": "snow", "mystery": True,
+             "text": "The boss drone's screen glitched: one red spiral, then static. Pix posed for a camera that was not there. Weird."},
+            {"setting": "snow",
+             "text": "They both snoozed in the victory bunker. Outside, the snow fell UP for exactly one second."},
+        ],
+    },
+    {
+        "title": "The Candy Vault Diaries", "tier": 3, "cast": ["trix", "zia"],
+        "scenes": [
+            {"setting": "candy",
+             "text": "Zia licked the evidence. Trix screamed silently into a lollipop. Standard procedure.",
+             "props": "tårta"},
+            {"setting": "candy",
+             "text": "The vault opened at 33 twists of the rainbow lock. Trix counted. Zia flexed at the security bees.",
+             "props": "regnbåge"},
+            {"setting": "candy",
+             "text": "Caramel lasers woke up angry. They rushed between the gumdrop columns together."},
+            {"setting": "candy",
+             "text": "Zia blasted the lock with birthday-candle fire. Impressive. Wrong door, but impressive."},
+            {"setting": "candy", "mystery": True,
+             "text": "Inside: one gummy bear wearing the spiral badge. Trix gasped. The bear waved back. Bears cannot wave."},
+            {"setting": "night",
+             "text": "They fled home cakeless but alive. Behind them, unnoticed, the gummy bear started growing."},
+        ],
+    },
+    # ---------------- TIER 4: the water remembers ----------------
+    {
+        "title": "Operation Splashback", "tier": 4, "cast": ["doris", "boris"],
+        "scenes": [
+            {"setting": "underwater",
+             "text": "The coral mine sang its own countdown. Thirty seconds. Boris hated mines that sing.",
+             "props": "snäcka"},
+            {"setting": "underwater",
+             "text": "Doris dashed between the steam vents. Boris ducked under a bubble-mine and lost his hat. Again.",
+             "props": "fisk"},
+            {"setting": "underwater",
+             "text": "The eel guard demanded a password. Boris flexed and said 'password'. It worked. It never works."},
+            {"setting": "underwater",
+             "text": "Core overheating! They bolted for the surface together, towing the grumpy mine."},
+            {"setting": "beach", "mystery": True,
+             "text": "On the pier, a dark figure fished with no bait and smiled at Doris. The empty line hummed the lullaby."},
+            {"setting": "night",
+             "text": "They both slept with the mine wired to the doorbell. Somewhere below, the ocean learned a new song.",
+             "reaction": "★"},
+        ],
+    },
+    # ---------------- TIER 5: SEASON FINALE ----------------
+    {
+        "title": "The Spiral Awakens", "tier": 5, "cast": ["doris", "apan"],
+        "scenes": [
+            {"setting": "forest",
+             "text": "Every screen in Pixelville glitched the same red spiral at once. Rico's sandwich glitched too. Unforgivable."},
+            {"setting": "night",
+             "text": "Portals ripped open over the rooftops. They charged into the nearest one together, armed with snacks.",
+             "props": "portal"},
+            {"setting": "space",
+             "text": "On the shattered moon, Doris blasted a hole through the spiral gate with full fire-breath. 'Warned you about the tacos,' said Rico.",
+             "props": "portal"},
+            {"setting": "space",
+             "text": "The Watcher finally stepped forward. Rico ducked. Doris spun. It was already behind them. Rude."},
+            {"setting": "space", "mystery": True,
+             "text": "They grabbed the master key and bolted back through the portal together as the moon reassembled in silence.",
+             "props": "portal"},
+            {"setting": "night",
+             "text": "Back home: zero applause. The TV switched itself on: 'SEASON 1 COMPLETE. LOADING SEASON 2...' Rico choked on confetti.",
+             "reaction": "★"},
+        ],
+    },
+    # ---------------- TIER 2-3: neon + heist classics ----------------
+    {
+        "title": "Neon Jungle Run", "tier": 2, "cast": ["leo", "nova"],
+        "scenes": [
+            {"setting": "night",
+             "text": "'OUT OF THE PARKING ZONE!' The tow-crane lifted their getaway cart. Leo chose this exact moment to juggle."},
+            {"setting": "forest",
+             "text": "'RUN!' They sprinted through the pines together as the alarm howled behind them."},
+            {"setting": "forest",
+             "text": "Leo leapt the ravine. Nova spun through the laser web. Nobody even blinked."},
+            {"setting": "forest",
+             "text": "The mushroom guards formed a wall. Nova bonked the biggest one. Leo toppled over a victory cone.",
+             "props": "svamp"},
+            {"setting": "night", "mystery": True,
+             "text": "On the ridge above them, something tall watched and lit exactly one tiny green light. File under 'later'."},
+            {"setting": "night",
+             "text": "They both slept. The forest kept whispering one word, slow and proud: 'spiral'."},
+        ],
+    },
+    {
+        "title": "The Crystal Heist", "tier": 3, "cast": ["doris", "apan"],
+        "scenes": [
+            {"setting": "beach",
+             "text": "03:00 hours. Rico spotted the glowing gem first - someone hid it in a shell by the sea.",
+             "reaction": "!", "props": "ädelsten, snäcka"},
+            {"setting": "beach",
+             "text": "'Back off, it's mine,' grunted Doris, but Rico dashed ahead, faster than the tide."},
+            {"setting": "forest",
+             "text": "They sprinted through the jungle together, past vines and one very offended frog.",
+             "props": "groda, svamp"},
+            {"setting": "forest",
+             "text": "Doris leapt onto the crystal platform. Rico tripped on the laser wire. The alarms sang opera."},
+            {"setting": "forest", "mystery": True,
+             "text": "Rico flexed over the gem while the security drone projected one single frame: the red spiral."},
+            {"setting": "night",
+             "text": "Mission complete. They danced on the rooftop while the house across the street slowly turned to watch. Houses do not turn.",
              "reaction": "★"},
         ],
     },
 ]
+
+ESCALATION_TIERS = [t["tier"] for t in TEMPLATES]
 
 
 def normalize_scenes(raw):
@@ -237,7 +331,8 @@ def normalize_scenes(raw):
                     "text": s.get("text") or s.get("en") or s.get("sv") or "",
                     "action": s.get("action") or None,
                     "reaction": s.get("reaction") or None,
-                    "props": s.get("props")})
+                    "props": s.get("props"),
+                    "mystery": s.get("mystery") or None})
     return out
 
 
@@ -258,12 +353,14 @@ def make_story(seed, lang="en", story_index=None, cast=None):
          for s in tpl["scenes"]])
     beats = "\n".join("• " + s["text"] for s in scenes)
     cast_str = " & ".join(names)
-    description = (f"{title} ⚡\n\nStarring {cast_str}.\n\n{beats}\n\n"
+    tier = tpl.get("tier", 1)
+    description = (f"{title} ⚡ (mission tier {tier})\n\nStarring {cast_str}.\n\n{beats}\n\n"
                    "A PixelTube original – every frame drawn and every note composed by code.\n"
-                   "Subscribe and you'll be on the next mission. 🦖\n\n"
-                   "#pixelanimation #cartoon #animatedseries #mission")
+                   "Watch for the spiral. It's watching back. 🌀\n\n"
+                   "#pixelanimation #cartoon #animatedseries #pixeluniverse")
     tags = ["pixel animation", "animated series", "cartoon", "pixel art",
             "comedy animation", "adventure cartoon", "agent dino", "original cartoon"]
 
     return {"title": title, "name": name0, "cast": cast, "scenes": scenes,
+            "tier": tier,
             "tags": tags, "description": description, "seed": seed, "lang": "en"}

@@ -45,11 +45,21 @@ Format - reply with VALID JSON only, no markdown:
 Rules:
 - Exactly {n} scenes. Max 22 English words per scene. snappy, funny, cinematic.
 - setting MUST be one of: {settings}
-- STORY STRUCTURE: scene 1 = mission briefing / meet the agents. Middle = problems,
-  chases, chaos, banter. Final scene = victory dance or crash-out sleep.
+- COLD OPEN: scene 1 starts MID-CHAOS (pursuit, explosion, consequence of
+  something the cast already did). Never introduce anyone. No "meet the agents".
+- FLAW ENGINE: the conflict must be CAUSED by a cast member's personality
+  (overconfidence / greed / cowardice / snack obsession / perfectionism /
+  recklessness / grumpiness), never by bad luck.
+- MYSTERY: exactly one scene has "mystery": true and contains a cryptic
+  untouched clue about "the spiral" or "the Watcher". Never explain it.
+- CLIFFHANGER: the final scene must end on a question, absurd reveal, or
+  glitch – never a cozy resolution. Built for next-episode swipes.
+- HUMOR: exaggerate (faceplants, fire, freezes) instead of explaining jokes.
 - ACTIONS are written as VERBS that the animation engine plays instantly.
   Allowed verbs: jump/leap, run/sprint/dash/bolt, dance/boogie, spin/twirl,
-  hit/punch/smack/bonk, duck/dodge, wave/salute, sleep/snooze, walk/sneak/stroll.
+  hit/punch/smack/bonk, duck/dodge, wave/salute, sleep/snooze, walk/sneak/stroll,
+  fire: blasts/roasts/ignites, shock: gasps/yelps/freezes, fall: trips/faceplants/topples,
+  flex: flexes/poses/struts.
   Examples: "Doris leapt onto the vault." / "Rico ducked just in time." /
   "They sprinted back together."
   Use at least 3 explicit action verbs, each within 3 words of a cast name,

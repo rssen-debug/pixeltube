@@ -199,6 +199,27 @@ def _loop_sfx(act, dur, phase=0.0):
         while k < dur:
             put(k, sfxmod.snore(), 0.35)
             k += 2.1
+    elif act == "fire":
+        k = phase
+        while k < dur:
+            put(k, sfxmod.flame(), 0.45)
+            k += 1.3
+    elif act == "shock":
+        k = phase
+        while k < dur:
+            put(k, sfxmod.pop(), 0.38)
+            put(k + 0.22, sfxmod.sparkle(), 0.30)
+            k += 1.2
+    elif act == "fall":
+        k = phase
+        while k < dur:
+            put(k + 0.42, sfxmod.thud(), 0.62)
+            k += 1.9
+    elif act == "flex":
+        k = phase
+        while k < dur:
+            put(k, sfxmod.sparkle(), 0.22)
+            k += 2.6
     return tr
 
 
@@ -282,7 +303,8 @@ def main():
         scene_objs.append(engine.Scene(
             s["setting"], seed * 97 + i,
             actors=[(chars[n], acts[n]) for n in cast],
-            text=s["text"], props=s["props"], reaction=s["reaction"]))
+            text=s["text"], props=s["props"], reaction=s["reaction"],
+            mystery=s.get("mystery")))
     bits = []
     for i, s in enumerate(scenes):
         who = "/".join(f"{disp[n]}:{scene_actions[i][n]}" for n in cast if scene_actions[i][n])

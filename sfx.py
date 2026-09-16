@@ -121,7 +121,20 @@ def splash():
     return (sm * np.exp(-t * 6) * 3 + np.sin(2 * np.pi * 170 * t) * np.exp(-t * 8) * 0.4).astype(np.float32)
 
 
+def flame():
+    """Eld-attack: sprakande brunbrus + låg vrål-bas."""
+    rng = np.random.default_rng(21)
+    n = int(SR * 0.60)
+    noise = rng.uniform(-1, 1, n).astype(np.float32)
+    sm = np.convolve(noise, np.ones(28, dtype=np.float32) / 28, mode="same")
+    t = np.arange(n) / SR
+    rumble = np.sin(2 * np.pi * 62 * t) * 0.8 + np.sin(2 * np.pi * 47 * t) * 0.4
+    env = np.sin(np.linspace(0, np.pi, n)) ** 1.2
+    crackle = noise * (rng.random(n) < 0.04) * np.exp(-t * 2)
+    return ((sm * 5 + rumble) * env * 0.8 + crackle * 0.5).astype(np.float32)
+
+
 def make(name):
     return {"boing": boing, "pop": pop, "whoosh": whoosh,
             "splash": splash, "sparkle": sparkle, "fanfare": fanfare,
-            "thud": thud, "bonk": bonk, "snore": snore}[name]()
+            "thud": thud, "bonk": bonk, "snore": snore, "flame": flame}[name]()
