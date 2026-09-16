@@ -605,3 +605,16 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
 - LÄXA: karaktärer som ansluter till huvudmannen i VERT måste åka IN i 90px-fönstret runt honom
   (col-track: -34->182, annars passerar han bakom crop-kanten utan att synas!).
 - Fil mer: out/nine-five-ep001-vertical.mp4 (~24s render, 2.5 MB).
+
+## 10c) TTS MODE + viral-manus (user override: "fett TTS", större transcripts)
+- USER REVERSAL (TikTok-only för nu): verklig TTS-röst ist för pixel-pip i short-versionen.
+  voice-00 (maskulin berättare, dry) via generate_speech -> tts/lineNN.wav (24k mono).
+  --tts flag: main laddar wav per line-index (len(tts_used)), resamplas till 44100 i mixen
+  (voicemod.SR), sub-tiden autonomiskt utökad (t1 = t0 + len(arr)/SR + 1.1). FALLBACK gibberish om fil saknas.
+- VIRAL-MANUS (episode_905v): 10 rader exakt (cause-effect): hook "He lived the same day.../...nine
+  thousand times." -> beatlista ("Rain. Coat. Crosswalk. Repeat.") -> escalation DAY-stämplar ->
+  ensamhet ("HEY TOM! But he did not hear it.") -> "Then the light turned green." -> "One step. One
+  horn. The End." + tyst VOID (pattern-interrupt via tystnad) + vcard "LEVEL 0 / CONTINUE?".
+  MAX 34 tecken/rad (vertikal 4-skala passform).
+- VERT CAPTIONS: scale 4 + y = 62% höjd (mitt-nedateddel, ej UI-täckt), pad 30/22.
+- tts/ bevara 24kHz-mono i WAV; voices.battle_id=00. Forts. ledger >10 clips -> fler turer.

@@ -30,6 +30,7 @@ NEAREST = E.NEAREST
 FPSS = 12
 SCALE = 6                      # research: exakt 6x NEAREST -> 1080p
 VERT = False                   # 9:16-läge (default av)
+TTS_MODE = False               # riktig TTS-röst istf pixel-pip (per-line wavs i tts/)
 VERT_STAMPS_OUT = False        # VERT: stamps ritas på output-koordinater                       # 320x180 -> 1280x720
 OUTW, OUTH = E.W * SCALE, E.H * SCALE
 
@@ -121,12 +122,12 @@ DISP = {"ren": "REN", "yuki": "YUKI", "mika": "MIKA", "kaba": "KABA",
 
 def draw_sub(pil_img, text, who=None):
     d = ImageDraw.Draw(pil_img, "RGBA")
-    _sub_sc = 3 if OUTH > OUTW else 5                # vertikal = smalare
+    _sub_sc = 4 if OUTH > OUTW else 5                # vertikal: STORA captions
     t = E.ptext(text, scale=_sub_sc, col=(255, 255, 255))     # TIKTOK-STORA subs
-    pad_x, pad_y = 26, 18
+    pad_x, pad_y = 30, 22
     bw, bh = t.width + pad_x * 2 + 8, t.height + pad_y * 2
     x0 = (OUTW - bw) // 2
-    y0 = OUTH - bh - 22
+    y0 = int(OUTH * (0.62 if OUTH > OUTW else 1.0)) - bh - (0 if OUTH > OUTW else 0)         if OUTH > OUTW else OUTH - bh - 22
     d.rectangle([x0 + 4, y0 + 5, x0 + bw + 4, y0 + bh + 5], fill=(0, 0, 0, 110))
     d.rectangle([x0, y0, x0 + bw, y0 + bh], fill=(12, 12, 20, 200),
                 outline=(90, 90, 120, 220), width=3)
@@ -912,7 +913,7 @@ def episode_905(cast):
                     "faces": [(0.2, "sad", False)]},
         },
         "fx": [{"kind": "stamp", "t0": 0.2, "t1": 2.6, "text": "DAY 9 412", "x": 20, "y": 22}],
-        "lines": [(1.0, "narr", "Day 9 412. His reflection blinked first.")],
+        "lines": [(0.7, "narr", "Day 9,412... still counting.")],
         "audio": [(0.05, "alarm", 0.6)]})
     # 5) PERRONG: tåget sveper förbi
     sc.append({
@@ -1005,8 +1006,9 @@ def episode_905v(cast):
         },
         "fx": [{"kind": "stamp", "t0": 0.05, "t1": 2.4, "text": "DAY 9 413", "scale": 6,
                 "x": 60, "y": 120, "color": (255, 120, 100)}],
-        "lines": [(0.6, "tom", "The rain did not ask permission."),
-                  (3.5, "narr", "Day 9 413. Something was about to splice the loop.")],
+        "lines": [(0.5, "narr", "He lived the same day..."),
+                  (2.6, "narr", "...nine thousand times."),
+                  (4.6, "narr", "Rain. Coat. Crosswalk. Repeat.")],
         "audio": [(0.2, "boom", 0.35), (6.2, "horn", 0.28)]})
     sc.append({
         "env": ("apartment", {}), "dur": 7.6, "mood": "cozy",
@@ -1018,8 +1020,7 @@ def episode_905v(cast):
         },
         "fx": [{"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "DAY", "scale": 7, "x": 60, "y": 110},
                {"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "1", "scale": 7, "x": 60, "y": 260}],
-        "lines": [(1.0, "tom", "Day 1. The alarm chose violence."),
-                  (5.2, "tom", "Shower is a threat, not a place.")],
+        "lines": [(1.0, "narr", "Day one: alarm, coffee, door.")],
         "audio": [(0.05, "alarm", 0.9), (0.5, "alarm", 0.7), (1.1, "thud", 0.6)]})
     sc.append({
         "env": ("apartment", {}), "dur": 3.6, "mood": "cozy",
@@ -1030,7 +1031,7 @@ def episode_905v(cast):
         },
         "fx": [{"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "DAY", "scale": 7, "x": 60, "y": 110},
                {"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "9 412", "scale": 6, "x": 60, "y": 270}],
-        "lines": [(1.0, "narr", "Day 9 412. His reflection blinked first.")],
+        "lines": [(0.7, "narr", "Day 9,412... still counting.")],
         "audio": [(0.05, "alarm", 0.6)]})
     sc.append({
         "env": ("platform", {"train_t": 2.8}), "dur": 7.6, "mood": "ominous",
@@ -1040,8 +1041,7 @@ def episode_905v(cast):
                     "blocks": [(0, 7.6, "idle")],
                     "faces": [(0.4, "sad", False), (5.6, "normal", False)]},
         },
-        "lines": [(0.4, "narr", "Same train. Same seat. Same song."),
-                  (5.4, "tom", "I move numbers. Nobody knows where to.")],
+        "lines": [(0.6, "narr", "Same train. Same seat. Same song.")],
         "audio": [(2.7, "rumble", 0.95), (4.9, "whoosh", 0.7)]})
     sc.append({
         "env": ("office", {}), "dur": 8.6, "mood": "mystery",
@@ -1055,10 +1055,8 @@ def episode_905v(cast):
                     "blocks": [(0, 5.2, "none"), (5.2, 6.1, "mov"), (6.1, 8.6, "idle")],
                     "faces": [(5.8, "happy", False)]},
         },
-        "lines": [(0.5, "narr", "Day 9 413. Numbers, left to right."),
-                  (5.2, "col", "Hey Tom!"),
-                  (6.0, "tom", "..."),
-                  (7.0, "narr", "The hello arrived one desk too late.")],
+        "lines": [(0.5, "narr", "His job? Move numbers all day."),
+                  (5.4, "narr", "HEY TOM! But he did not hear it.")],
         "audio": []})
     sc.append({
         "env": ("street", {"hit_t": 6.2}), "dur": 9.2, "letterbox": 0, "fadeout": 0.5,
@@ -1074,8 +1072,8 @@ def episode_905v(cast):
                     "faces": [(0.4, "normal", True), (2.2, "sad", True),
                               (5.0, "wide", False), (6.2, "whiteout", False)]},
         },
-        "lines": [(0.6, "narr", "The 42 never honked before."),
-                  (3.3, "tom", "Green again. Story of my li-")],
+        "lines": [(0.6, "narr", "Then the light turned green."),
+                  (3.4, "narr", "One step. One horn. The End.")],
         "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True},
                {"kind": "blood", "t": 6.22, "x": 96, "y": 140},
                {"kind": "stamp", "t0": 4.85, "t1": 6.18, "text": "!!", "scale": 14,
@@ -1089,9 +1087,7 @@ def episode_905v(cast):
                     "faces": [(0.3, "wide", False), (2.6, "spark", False),
                               (5.2, "normal", False)]},
         },
-        "lines": [(0.9, "narr", "Then: nothing. And then: this clean, white room."),
-                  (4.0, "tom", "...this is not the 42."),
-                  (6.2, "narr", "CONTINUE?")],
+        "lines": [],
         "fx": [{"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "PLAYER 2", "scale": 5,
                 "x": 230, "y": 180, "color": (140, 170, 220)},
                {"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "READY", "scale": 5,
@@ -1109,12 +1105,16 @@ def main():
     ap.add_argument("--ep", type=int, default=1)
     ap.add_argument("--out", default=None)
     ap.add_argument("--vertical", action="store_true")
+    ap.add_argument("--tts", action="store_true")
     args = ap.parse_args()
 
     if getattr(args, "vertical", False):
         globals()["VERT"] = True
         globals()["VERT_STAMPS_OUT"] = True
         globals()["OUTW"], globals()["OUTH"] = 1080, 1920
+    if getattr(args, "tts", False):
+        globals()["TTS_MODE"] = True
+        print("   🎙 TTS MODE: tts/line00-NN.wav används som röster")
     cast = build_cast95() if args.ep in (905,) else build_cast()
     if args.ep == 905:
         globals()["SERIES"] = "9-5"
@@ -1171,6 +1171,7 @@ def main():
 
     # per scen: röster+läppar+sfx
     scene_starts, cur = [], 0.0
+    tts_used = []
     mouth_per = {}          # (scene_idx, name) -> bool array lokala frames
     lines_global = []       # (scene_idx, who, text, t0_local, t1_local)
     for i, s in enumerate(scenes):
@@ -1182,7 +1183,25 @@ def main():
                                         "spiky")).voice_pitch
             if who == "narr" or who == "hood":
                 sp = "narr"
-            arr = voicemod.speak(text, species=sp, seed=301 * 57 + i * 13 + int(lt * 10))
+            tts_path = f"/home/user/pixeltube/tts/line{len(tts_used):02d}.wav"
+            if TTS_MODE and os.path.exists(tts_path):
+                import wave as _wav
+                with _wav.open(tts_path, "rb") as _wf:
+                    _sr = _wf.getframerate()
+                    _n = _wf.getnframes()
+                    _ch = _wf.getnchannels()
+                    _raw = np.frombuffer(_wf.readframes(_n), dtype="<i2").astype(np.float32) / 32767
+                if _ch > 1:
+                    _raw = _raw[::_ch]
+                if _sr != voicemod.SR:
+                    _xx = np.linspace(0, 1, len(_raw))
+                    _interp = np.interp(np.linspace(0, 1, int(len(_raw) * voicemod.SR / _sr)), _xx, _raw)
+                    arr = _interp.astype(np.float32)
+                else:
+                    arr = _raw.astype(np.float32)
+            else:
+                arr = voicemod.speak(text, species=sp, seed=301 * 57 + i * 13 + int(lt * 10))
+            tts_used.append(tts_path)
             put(cur + lt, arr, 0.9)
             dur = len(arr) / voicemod.SR
             lines_global.append((i, who, text, lt, lt + max(dur, 0.5) + 1.1))
