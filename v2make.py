@@ -168,12 +168,13 @@ def episode_001(cast):
         "env": ("dojo", {"door_t": 4.4, "bag_hits": (0.75, 1.6, 2.5)}), "dur": 13.4,
         "cam": [{"kind": "zoom", "z": lambda t: 1.0 if t < 5.2 else 1.18, "focus": (150, 96)}],
         "actors": {
-            "ren": {"track": [(0, 84, False), (8.2, 120, False), (13.4, 122, False)],
+            "ren": {"track": [(0, 72, True), (8.0, 72, True), (8.3, 120, False), (13.4, 122, False)],
                     "blocks": [(0.55, 0.82, "punch"), (0.82, 1.4, "idle"),
                                (1.4, 1.68, "punch"), (1.68, 2.3, "idle"),
                                (2.3, 2.58, "punch"), (2.58, 8.2, "idle"),
                                (8.2, 10.6, "point"), (10.6, 99, "idle")],
-                    "faces": [(8.2, "angry", False)]},
+                    "faces": [(0.3, "angry", False, "grit"), (4.2, "normal", False),
+                              (8.2, "angry", False)]},
             "mika": {"track": [(0, 288, False), (4.4, 244, True), (6.2, 172, True), (13.4, 174, True)],
                      "blocks": [(0, 4.4, "none"), (4.4, 6.3, "mov"), (6.3, 99, "point")],
                      "faces": []},
@@ -333,11 +334,12 @@ def episode_002(cast):
         "env": ("dojo", {"door_t": 3.8, "bag_hits": (0.7, 1.5, 2.3)}), "dur": 13.6,
         "cam": [{"kind": "zoom", "z": lambda t: 1.0 if t < 5.0 else 1.16, "focus": (150, 96)}],
         "actors": {
-            "ren": {"track": [(0, 84, False), (13.6, 100, False)],
+            "ren": {"track": [(0, 72, True), (3.6, 72, True), (4.0, 88, False), (13.6, 100, False)],
                     "blocks": [(0.5, 0.78, "punch"), (0.78, 1.35, "idle"),
                                (1.35, 1.62, "punch"), (1.62, 2.2, "idle"),
                                (2.2, 2.48, "punch"), (2.48, 99, "idle")],
-                    "faces": [(6.0, "sad", False)]},
+                    "faces": [(0.3, "angry", False, "grit"), (4.2, "normal", False),
+                              (6.0, "sad", False)]},
             "mika": {"track": [(0, 288, False), (3.8, 210, True), (13.6, 200, True)],
                      "blocks": [(0, 3.8, "none"), (3.8, 5.4, "mov"), (5.4, 99, "point")],
                      "faces": [(5.4, "wide", False)]},
@@ -503,7 +505,7 @@ def episode_003(cast):
                      "blocks": [(0, 3.4, "none"), (3.4, 5.0, "mov"), (5.0, 99, "point")],
                      "faces": [(5.0, "wide", False)]},
             "ren": {"track": [(0, 100, False), (12.4, 104, False)],
-                    "blocks": [(0, 99, "idle")], "faces": [(6.6, "angry", False)]},
+                    "blocks": [(0, 99, "idle")], "faces": [(6.6, "angry", False, "smirk")]},
             "yuki": {"track": [(0, 150, False), (12.4, 150, False)],
                      "blocks": [(0, 99, "guard")], "faces": [(9.0, "angry", False)]},
         },
@@ -635,24 +637,26 @@ def episode_003(cast):
 # RENDERER                                                                  #
 # -------------------------------------------------------------------------- #
 def _mood_for_line(who, text):
-    """(eyes, mouth_open, mouth_closed, addons) medan repliken pågår."""
+    """(eyes, mouth_open, mouth_closed, addons) medan repliken pågår.
+    GRUNDREGEL: lugnt prat = mjuk neutral mun. Tänder (grit) bara vid hetta —
+    annars ser ALLA arga ut hela tiden."""
     t = text or ""
-    if who == "kaba":
-        return ("angry", "open", "grit", ("vein",))
-    if "cheap shot" in t or "owes me" in t:
-        return ("sad", "open", "grit", ("sweat", "blush"))
+    if "cheap shot" in t or "owes me" in t or "HURTS" in t:
+        return ("sad", "open", "frown", ("sweat",))
     if "My turn" in t:
         return ("angry", "open", "smirk", ())
     if any(k in t for k in ("KIDS", "WAKE THEM", "Show yourself", "SANDWICH",
-                            "wake them up", "Activate", "activating")):
+                            "wake them up", "Activate", "activating", "OBLITERATE")):
         return ("whiteout", "shout", "grit", ())
-    if who == "naya":
-        return ("sad", "open", "frown", ())
-    if who == "mika":
-        return ("wide", "open", "grin", ())
-    if who == "yuki":
-        return ("angry", "open", "frown", ())
-    return ("wide", "open", "grit", ())
+    TALK = {  # lugnt samtal: neutral läppsynk, personlighets-ögon
+        "ren":  ("wide", "open", "closed", ()),
+        "yuki": ("normal", "open", "frown", ()),
+        "mika": ("wide", "open", "smile", ()),
+        "kaba": ("angry", "open", "grit", ("vein",)),   # skurken FÅR behålla tänderna
+        "naya": ("sad", "open", "closed", ()),
+        "hood": ("normal", "closed", "closed", ()),
+    }
+    return TALK.get(who, ("wide", "open", "closed", ()))
 
 
 def _shot_plan(lwins):
@@ -803,9 +807,34 @@ def main():
         if end > off:
             mix[off:end] += seg[: end - off]
 
-    # musik
-    track = musicmod.chip(77, int(total + 1), bpm=120)
-    put(0.0, track, 0.62)
+    # ADAPTIV MUSIK: sektion per scen-mood (tension/cozy/action/mystery/...)
+    def _scene_mood(sc):
+        ek = sc["env"][0]
+        if ek == "title":
+            return "title"
+        if ek == "eyecatch":
+            return "sting"
+        if ek == "preview":
+            return "happy"
+        fxk = {f.get("kind") for f in sc.get("fx", [])}
+        if "impact" in fxk:
+            return "action"
+        if any("kaba" in a for a in sc.get("actors", {})) and sc.get("lines"):
+            return "menace"
+        if ek == "dojo":
+            return "cozy"
+        if sc.get("letterbox") and sc["env"][1].get("lights_on"):
+            return "mystery"
+        if sc.get("letterbox"):
+            return "ominous"
+        return "ominous"   # dock+natt utan spårr = spänd stämning, aldrig "glad"
+
+    msegs = []
+    for i2, s2 in enumerate(scenes):
+        msegs.append(musicmod.section(_scene_mood(s2), s2["dur"] + 0.02, seed=77 + i2 * 37))
+    track = np.concatenate(msegs) if msegs else np.zeros(8, dtype=np.float32)
+    put(0.0, track, 0.55)
+    print("   🎵 moods:", [_scene_mood(s2) for s2 in scenes])
 
     # per scen: röster+läppar+sfx
     scene_starts, cur = [], 0.0

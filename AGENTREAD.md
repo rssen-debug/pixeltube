@@ -486,3 +486,22 @@ Iterativ review-loop: TÄT genomgång (12 frames/episod) -> defektkatalog -> fix
 - **Dojo-interiör**: bokken-ställ (3 lutande stavar), hänglykta (varm glödpunkt), signum-affisch (rött sigill), tatami-sömmar i golv — ritas in i self.bg under _build (statiskt = gratis per frame).
 - **Koreografi-blockering**: EP003 scen 3 — Naya gick in i Kabas drop-zon; lösning: hon backar (2.1-3.6 mov till x=302) INNAN Kaba landar vid 3.2. REGEL: vid skurk-drop ska alla andra tracks flyttas ur ~70px radie, eller paus-sättas före droppen.
 - Verifierat: ögonprobe isolerat, bodies-lineup isolerat, sedan 3x12-frames fullreview. Säsongen säljs först då alla tre grids passerar.
+
+## 9m) v3.6 ADAPTIV MUSIK + HUE-SHIFT + ANSIKTSREBALANS (research-driven)
+User: "samma pipiga låt genom allt, alla ser arga ut hela tiden, boxar i luften, levla grafiken 100x".
+RESEARCH (sparat: soundcy chiptune-teknik, soundation NES-byggstenar, pixnote skuggning, pixel-editor colort ramps):
+- CHIP-MOTOR (NES-arkitektur: 2 pulse + triangelbas + noise): music.section(mood, sekunder):
+  ominous 70bpm drone+glest-bell | title/sting fanfar | cozy 96bpm soft-wander | happy 112 I-V-vi-IV |
+  menace 104 D-moll halvnots-stabs+snare3 | ACTION 154 BPM E-moll pulse8-bas+16-delars-arp+4/4-kick |
+  mystery 80 maj7-bell | duty-cycle per stil. Sektioner får 30ms edge-fades (klickfria gränser).
+  v2make._scene_mood: title/eyecatch/preview->title/sting/happy, fx impact->action, kaba->menace,
+  dojo->cozy, letterbox+lights_on->mystery, letterbox->ominous, dock-övrigt->ominous (ALDRIG default-glad).
+  Verifiera genom RMS-analys av slutmix (~25% energisväng mellan ominous och action sektioner).
+- HUE-SHIFT ÄR 16-BIT-KÄRNAN: _dk() mörknar mot kallt (r*0.92, b+(255-b)*0.055),
+  _lt() ljusnar mot varmt (r+0.07 diff, b*0.90). ENDA stället global ändring -> hela grafiken följer.
+- ANSIKTSREBALANS (_mood_for_line): lugnt prat = neutral läpp-musk (closed/smile/frown), GRIT BARA vid
+  heta ord eller skurken (kaba behåller tänder = varumärke). Mika ler när hon talar, Yuki smirkar,
+  HURTS/cheap shot -> sad+sweat. Að savarga "alla ser arga ut".
+- BOXSÄCKEN: sack_x=46 vänsterdoktorn -> Ren står x=72 med flip=True under träningsblocken
+  (armräckvidd 26 -> 46 = TRÄFF), vänder sig först vid replik-byte mot dörren. Samma fix EP001+EP002.
+  REGEL: tränings-slag kräver prop-räckvidd-verifiering precis som fighter.

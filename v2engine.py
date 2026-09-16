@@ -995,7 +995,11 @@ class Suit:
 
 
 def _dk(c, f=0.62):
-    return tuple(int(v * f) for v in c[:3])
+    """Skugg-ton: 16-bit hue-shift — drar mot KALLT (blå-lila) när den mörknar."""
+    r, g, b = c[:3]
+    return (max(0, int(r * f * 0.92)),
+            max(0, int(g * f * 0.96)),
+            min(255, int(b * f + (255 - b) * 0.055)))
 
 
 def draw_body(img, suit, j, scale=1.0):
@@ -1083,7 +1087,11 @@ def draw_body(img, suit, j, scale=1.0):
 # ANIMEHUVUD 26x24 – ansiktsupplägg ritas dynamiskt per frame
 # ---------------------------------------------------------------------------
 def _lt(c, f=1.25):
-    return tuple(min(255, int(v * f)) for v in c[:3])
+    """Ljus-ton: 16-bit hue-shift — drar mot VARMT (gult) när den ljusnar."""
+    r, g, b = c[:3]
+    return (min(255, int(r * f + (255 - r) * 0.07)),
+            min(255, int(g * f + (255 - g) * 0.05)),
+            max(0, int(b * f * 0.90)))
 
 
 def _base_head(skin, out):
