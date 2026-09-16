@@ -373,6 +373,41 @@ powerup only where the script earns it. Intensity is a budget.
 * Rollregistret: Jun (dino/crimson) hetlevrad · Mira (kanin/blå) strateg ·
   Knox (mech/krom) uråldrig väktare · Grim (apa/kolnatt) rival.
 
+## 9f. v2 PIXEL ANIME (VOLT BREAKER) – mänskliga hjältar på CPU
+
+SEPARAT från v1 (engine.py orörd). Nya filer: v2engine.py (människo-rigg,
+scener, kort, fx), v2make.py (regissören + ljudmix). Detta är EN RIKTIG
+ANIME-EPISOD, inte en tecknad barnserie.
+
+EPISOD-ANATOMI (research: japanesewithanime/anime-stackexchange):
+avant-title (cold open) -> OP-kort -> A-part (slutar MINI-CLIFFHANGER) ->
+EYECATCH x2 (stilla pose-kort + jingle, KonoSuba-stil) -> B-part (fight) ->
+C-part-tease -> jikai yokoku (NEXT EPISODE-kort). Allt finns i v2make.
+
+* **PXChar** – mänsklig pixelkropp 24x26: hårlager (spiky/long/pony/hawk)
+  bakas in, poser idle/walk1/walk2(mirror)/punch/hurt/point/guard,
+  `_face_patch()` ritar ögon (normal/blink/wide/angry/x/spark/sad) + mun
+  (closed/open/grin/shout/frown) + blåmärke VARJE frame -> skådespeleri.
+* **Läppsynk** – `mouth_track(wave)`: röstens envelope (max per 1/12s,
+  38:e percentil-tröskel + 1-frame-eller) -> öppen/stängd mun per frame.
+* **Auto-blink** – per-karaktär seedat 2.4-4.3s-intervall; tvingade
+  ögon-tillstånd vinner ("faces"-block i regiboken).
+* **Dörrar** – DojoInterior. shoji-panel glider upp (door_t + 0.9s ease)
+  med ljuskil som växer in; boxningssäck pendlar efter bag_hits.
+* **Att slåss = ont** – hurt-pose + "x"-ögon + blåmärke + knock-vibration
+  (sin 60Hz) + track-knockback + impact_flash invert + kiai-wedges.
+* **Scener** – DockNight (regn 80 streak, roterande fyrstråle, signalmast
+  m. röd blink, light_event tänder lyktor/torn/stads-fönster),
+  DojoInterior, TitleCard/EyecatchCard/PreviewCard.
+* **Regiboken** – episode_001(): per scen: actors{track,blocks,faces,
+  drop,y_off}, lines (t,who,text), audio-events, fx-events
+  (impact/kiai/slash/aura gold-flamma/speedwin), cam (zoom-lambda/shake),
+  letterbox, fades.
+* FPS 12 (anime on 2s/3s!), render 320x180→1280x720 NEAREST. 80s ≈ 13s CPU.
+* ptext() = pixeltypografi (load_default xN NEAREST). Använd ptext_fit()
+  för texter som ska rymmas – robotfonten saknar unicode (inga –/★)!
+* Underteckning: sub ritas EFTER kamera/letterbox (annars croppar zoom-pillret).
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's
