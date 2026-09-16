@@ -66,6 +66,7 @@ VERBS = {
     "fall":  ["trips", "tripped", "faceplants", "faceplanted", "slips",
               "topples", "toppled", "tumbles", "tumbled", "flops", "stumbled"],
     "flex":  ["flexes", "flexed", "poses", "posed", "smirks", "struts", "strutted"],
+    "powerup": ["awakens", "awakened", "unleashes", "unleashed", "erupts", "ascends"],
 }
 GROUP_WORDS = [" they ", " both ", " everyone ", " the duo ", " the two ",
                " together", " duo "]
@@ -271,7 +272,7 @@ TEMPLATES = [
              "text": "On the shattered moon, Doris blasted a hole through the spiral gate with full fire-breath. 'Warned you about the tacos,' said Rico.",
              "props": "portal"},
             {"setting": "space",
-             "text": "The Watcher finally stepped forward. Rico ducked. Doris spun. It was already behind them. Rude."},
+             "text": "The Watcher finally stepped forward. Doris awakened her full aura in defiance. Rico ducked in the shockwave. Rude."},
             {"setting": "space", "mystery": True,
              "text": "They grabbed the master key and bolted back through the portal together as the moon reassembled in silence.",
              "props": "portal"},

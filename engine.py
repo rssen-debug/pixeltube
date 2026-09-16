@@ -22,7 +22,7 @@ ACTOR_GAP = 52
 
 NEAREST = getattr(getattr(Image, "Resampling", Image), "NEAREST")
 ACTIONS = ("walk", "run", "jump", "dance", "spin", "hit", "duck", "wave", "sleep",
-           "fire", "shock", "fall", "flex")
+           "fire", "shock", "fall", "flex", "powerup")
 LAND = frozenset(["forest", "night", "beach", "space", "snow", "candy"])
 
 
@@ -291,6 +291,45 @@ _SWEAT = _rows("""
 ..c..
 """)
 
+def _rim_light(img, side):
+    """Ljusstrimma på kant mot ljuskällan (uppe ifrån + åt ena hållet)."""
+    a = img.getchannel("A")
+    up = Image.new("L", img.size, 0)
+    up.paste(a, (0, 1))
+    lat = Image.new("L", img.size, 0)
+    lat.paste(a, (side, 0))
+    from PIL import ImageChops
+    edge = ImageChops.subtract(a, up)
+    edge = ImageChops.lighter(edge, ImageChops.subtract(a, lat))
+    edge = ImageChops.multiply(edge, a.point(lambda v: 210 if v else 0))
+    rim = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    warm = Image.new("RGBA", img.size, (255, 246, 214, 0))
+    warm.putalpha(edge)
+    rim.alpha_composite(warm)
+    out = img.copy()
+    out.alpha_composite(rim)
+    return out
+
+
+_TINT_CACHE = {}
+
+
+def scene_tint(character, ambient):
+    """Blendkaraktärens frames ~16% mot scenambienten – ljuset smittar!"""
+    key = (character.species, character.tint, ambient)
+    if key not in _TINT_CACHE:
+        out = {}
+        for fk, fimg in character._base_frames.items():
+            wash = Image.new("RGBA", fimg.size, ambient + (0,))
+            m = fimg.getchannel("A").point(lambda v: int(v * 0.16))
+            wash.putalpha(m)
+            img = fimg.copy()
+            img.alpha_composite(wash)
+            out[fk] = img
+        _TINT_CACHE[key] = out
+    character.frames = _TINT_CACHE[key]
+
+
 # ---------------------------------------------------------------------------
 # KARAKTÄRSREGISTER – samma namn, samma karaktär. För evigt.
 # ---------------------------------------------------------------------------
@@ -391,11 +430,92 @@ class Character:
                         (img.width * CHAR_SCALE, img.height * CHAR_SCALE), NEAREST)
                     frames[tag + suf + "f"] = frames[tag + suf].transpose(
                         Image.FLIP_LEFT_RIGHT)
+            for fk, fimg in list(frames.items()):      # v9: warm rim light
+                side = -1 if fk.endswith("f") else 1
+                frames[fk] = _rim_light(fimg, side)
             _FRAME_CACHE[cache_key] = frames
         self.frames = _FRAME_CACHE[cache_key]
+        self._base_frames = self.frames
         self.w = self.frames["A"].width
         self.h = self.frames["A"].height
         self.hopping = self.species == "kanin"
+
+
+# ---------------------------------------------------------------------------
+# v9: ord-burst, fisheye, scen-wipes
+# ---------------------------------------------------------------------------
+def _word_burst(img, word, pos, pop, age):
+    """Pixlad BAM/BAAM som poppar fram och darrar (anime sound-effect shot)."""
+    fx, fy = pos or (130, 60)
+    sc = 3 if pop < 1 else 4
+    fs = 24 if pop < 1 else 28
+    wimg = _pixel_word(word, fs)
+    jitter = int(2 * math.sin(age * 40)) if age > 0.12 else 0
+    out = img.copy()
+    out.paste(wimg, (fx - wimg.width // 2, fy - wimg.height // 2 + jitter), wimg)
+    return out
+
+
+_WORD_FONT_CACHE = {}
+
+
+def _pixel_word(word, fs):
+    if (word, fs) in _WORD_FONT_CACHE:
+        return _WORD_FONT_CACHE[(word, fs)]
+    import PIL.ImageFont
+    font = PIL.ImageFont.load_default()
+    timg = Image.new("RGBA", (len(word) * 9 + 8, 13), (0, 0, 0, 0))
+    td = ImageDraw.Draw(timg)
+    td.text((2, 2), word, fill=(255, 255, 255, 255), font=font)
+    timg = timg.crop(timg.getbbox())
+    timg = timg.resize((timg.width * fs // 8, timg.height * fs // 8), NEAREST)
+    out = Image.new("RGBA", (timg.width + 8, timg.height + 8), (0, 0, 0, 0))
+    d = ImageDraw.Draw(out)
+    for ox, oy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, 2)):
+        d.bitmap((4 + ox, 4 + oy), timg, fill=(28, 12, 30, 255))
+    out.paste(timg, (4, 4), timg)
+    _WORD_FONT_CACHE[(word, fs)] = out
+    return out
+
+
+def _fisheye(img, amount):
+    """Tunn cylindrisk lins: anamorfisk öppningsbild."""
+    bands = 12
+    out = Image.new("RGB", (W, H), (0, 0, 0))
+    bh = H // bands
+    for b in range(bands):
+        y0 = b * bh
+        y1 = H if b == bands - 1 else y0 + bh
+        cy = (b + 0.5) / bands
+        f = 1.0 - amount * (abs(cy - 0.5) * 2) ** 1.6
+        seg = img.crop((0, y0, W, y1))
+        nw = max(16, int(W * f))
+        seg = seg.resize((nw, y1 - y0), NEAREST)
+        out.paste(seg, ((W - nw) // 2, y0))
+    return out
+
+
+def _draw_wipe(d2, style, p):
+    """Svart täcke som dras undan – linjevändning, jalusi eller iris."""
+    if style == 0:                                  # diagonal linje-wipe
+        edge = int((W + 90) * (1 - p)) - 45
+        d2.polygon([(0, 0), (edge + 45, 0), (edge - 45, H), (0, H)], fill=(8, 6, 14))
+    elif style == 1:                                # venetian-jalusi
+        slats = 6
+        for s in range(slats):
+            y0 = s * H // slats
+            hh = int((H // slats) * (1 - p))
+            if hh > 0:
+                d2.rectangle([0, y0, W, y0 + hh], fill=(8, 6, 14))
+    else:                                           # iris: växande cirkelreveal
+        cx, cy = W // 2, H // 2
+        rr = max(1, int(240 * p))
+        top_, bot_ = max(0, cy - rr), min(H, cy + rr)
+        d2.rectangle([0, 0, W, top_], fill=(8, 6, 14))
+        d2.rectangle([0, bot_, W, H], fill=(8, 6, 14))
+        lft = max(0, cx - rr)
+        d2.rectangle([0, top_, lft, bot_], fill=(8, 6, 14))
+        d2.rectangle([min(W, cx + rr), top_, W, bot_], fill=(8, 6, 14))
 
 
 # ---------------------------------------------------------------------------
@@ -723,7 +843,7 @@ SCHEMES = {
     "forest": {
         "sky": ((122, 196, 232), (214, 240, 214)), "celest": ("sun", (262, 30, 13)),
         "hills": (((150, 205, 130), 128, 16, 120), ((104, 168, 92), 142, 10, 84)),
-        "tree": "pine", "tree_cols": ((30, 92, 54), (56, 140, 84)),
+        "tree": "pine", "tree_cols": ((30, 92, 54), (56, 140, 84)), "rays": True,
         "ground": ((150, 110, 66), (96, 158, 80)),
         "dots": [(90, 150, 74), (120, 180, 92), (200, 150, 90)],
         "flowers": True, "particles": "leaf", "clouds": 3, "bird": True,
@@ -765,7 +885,7 @@ SCHEMES = {
     "candy": {
         "sky": ((255, 186, 214), (255, 240, 247)), "celest": ("sun", (262, 30, 13)),
         "hills": (((255, 196, 224), 130, 14, 110), ((255, 164, 206), 144, 10, 80)),
-        "tree": "lollipop",
+        "tree": "lollipop", "rays": True,
         "loli_cols": [(255, 130, 170), (255, 160, 90), (170, 230, 140), (150, 200, 255)],
         "ground": ((255, 240, 226), (255, 214, 168)),
         "dots": [(255, 120, 170), (140, 220, 250), (255, 220, 90), (170, 240, 140)],
@@ -773,6 +893,13 @@ SCHEMES = {
     },
 }
 
+
+# Scen-ambient: färgad ljusinbäddning så karaktärer SITTER I världen (v9)
+AMBIENTS = {
+    "forest": (150, 200, 150), "night": (60, 75, 140), "beach": (255, 236, 190),
+    "space": (128, 92, 190), "snow": (205, 225, 244), "underwater": (52, 130, 185),
+    "candy": (255, 205, 225),
+}
 
 # ---------------------------------------------------------------------------
 # Miljöritare
@@ -924,6 +1051,9 @@ class Scene:
         self.star_img = self.star_img.resize((self.star_img.width * 2, self.star_img.height * 2), NEAREST)
         self.bang_bubble = _bubble(_BANG, (232, 60, 60))
         self._build_mystery()
+        self._build_foreground()
+        for ch, _segs in self.actors:
+            scene_tint(ch, AMBIENTS.get(self.setting, (160, 160, 170)))
 
         self.bird = bool(self.pal.get("bird")) and self.rng.random() < 0.85
         self.bird_y = self.rng.randint(30, 62)
@@ -1104,6 +1234,32 @@ class Scene:
             wimg = _sprite_image(WATCHER, {"k": (16, 12, 28)})
             self.watcher = {"img": wimg, "x": self.rng.randint(240, W - 20),
                             "ph": self.rng.uniform(0, 6.28)}
+
+    def _build_foreground(self):
+        """FÖRGRUND: mörka nära silhuetter passerar FRAMFÖR aktörerna (djup!)."""
+        img = Image.new("RGBA", (2 * W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        g1, g2 = self.pal["ground"]
+        dark = tuple(max(0, int(v * 0.5)) for v in g2) + (225,)
+        dark2 = tuple(max(0, int(v * 0.42)) for v in g1) + (235,)
+        for _ in range(self.rng.randint(26, 38)):                    # grässtrån
+            x = self.rng.randrange(2 * W)
+            hgt = self.rng.randint(12, 34)
+            sway = self.rng.randint(-4, 4)
+            d.polygon([(x, H + 2), (x + sway, H - hgt), (x + 3, H + 2)], fill=dark)
+        for _ in range(self.rng.randint(4, 7)):                      # nära buskage stenar
+            x = self.rng.randrange(2 * W)
+            r = self.rng.randint(7, 13)
+            d.ellipse([x - r, H - r // 2, x + r, H + r // 2], fill=dark2)
+        if self.setting in ("forest", "night", "snow"):              # stam-kant ibland
+            if self.rng.random() < 0.5:
+                x = self.rng.choice([self.rng.randint(2, 26), self.rng.randint(2 * W - 30, 2 * W - 6)])
+                w_tr = self.rng.randint(14, 22)
+                d.rectangle([x, H - self.rng.randint(60, 110), x + w_tr, H + 2], fill=dark2)
+        self.fg = img
+
+    def _draw_foreground(self, img, t):
+        self._paste_wrapped(img, self.fg, t * 27.0)
 
     def _draw_watcher(self, img, t):
         if not self.watcher:
@@ -1332,6 +1488,14 @@ class Scene:
                     tilt = -78.0 * p2 * p2 * dirn
                 else:
                     tilt = -78.0 * dirn
+            elif act == "powerup":              # v9: transformationen!
+                cy = (tt % 2.8) / 2.8
+                if cy < 0.32:                     # samla kraft: darrar o squaschar
+                    squash = 1.0 - 0.10 * math.sin(math.pi * cy / 0.32)
+                    xoff += int(1.5 * math.sin(tt * 31))
+                else:                             # svävar med aura!
+                    feet -= int(4 + 2 * math.sin(tt * 9))
+                    squash = 1.0 + 0.06 * abs(math.sin(tt * 13))
             elif act == "flex":
                 bounce = abs(math.sin(tt * 5.0))
                 squash = 1.0 + 0.10 * bounce
@@ -1440,6 +1604,32 @@ class Scene:
                         sx = int(head_xc - 8 + 13 * math.cos(a))
                         sy = int(py - 2 + 5 * math.sin(a))
                         d.rectangle([sx, sy, sx + 2, sy + 2], fill=(255, 230, 120, 220))
+            elif act == "powerup":
+                cy = (tt % 2.8) / 2.8
+                if cy < 0.32:                     # laddning: mörk uppsamling
+                    for k in range(8):
+                        ax = head_xc + int(11 * math.sin(tt * 5 + k * 0.8))
+                        ay = int(feet - ((tt * 40 + k * 11) % 34))
+                        d.point((ax, ay), fill=(150, 90, 220, 200))
+                    ring = int(5 + 4 * math.sin(tt * 14))
+                    d.ellipse([x - 6 - ring, GROUND_Y - 2, x + ch.w + 6 + ring, GROUND_Y + 4],
+                              outline=(170, 100, 235, 160))
+                else:                             # AURA-PELARE + svävning + debris
+                    for j, (ox, wid) in enumerate(((-9, 7), (0, 11), (9, 7))):
+                        top = py - 8 - int(14 * math.sin(tt * 17 + j * 2.1)) - j * 3
+                        for rr, cf in ((wid, (255, 120, 50, 110)), (max(2, wid - 3), (255, 175, 80, 190)),
+                                       (max(1, wid - 5), (255, 238, 170, 230))):
+                            d.rectangle([px + spr.width // 2 + ox - rr, top,
+                                         px + spr.width // 2 + ox + rr, GROUND_Y], fill=cf)
+                    for k in range(6):            # stenflis som tappar tyngdkraften
+                        dx2 = int((k * 17 + 11 * math.sin(k)) % 40) - 20
+                        dy2 = int((tt * 26 + k * 13) % 26)
+                        d.point((head_xc + dx2, GROUND_Y + 3 - dy2), fill=(120, 100, 140, 220))
+                    for k in (0, 1):              # sprickor i marken
+                        sx2 = x + (4 if k == 0 else ch.w - 8)
+                        d.line([(sx2, GROUND_Y + 2), (sx2 - 7 + 14 * k, GROUND_Y + 5),
+                                (sx2 - 11 + 22 * k, GROUND_Y + 7)],
+                               fill=(20, 14, 26, 200), width=1)
             elif act == "flex":
                 blink2 = int(tt * 4) % 2 == 0
                 sy2 = max(1, py - self.star_img.height + 2 + int(2 * abs(math.sin(tt * 5))))
@@ -1549,6 +1739,43 @@ class Scene:
                 img = img.rotate(op.get("angle", -5), resample=NEAREST,
                                  expand=False, fillcolor=(0, 0, 0))
                 d2 = ImageDraw.Draw(img, "RGBA")
+        # ============ V9 CINEMA-FX ============
+        for op in self.cam:
+            k = op.get("kind")
+            if k == "slowmo":                    # Matrix-dodge: mörk vignett
+                t0, t1 = op.get("t0", 0.0), op.get("t1", 1.0)
+                if t0 <= t < t1:
+                    d2.rectangle([0, 0, W, 10], fill=(0, 0, 20, 150))
+                    d2.rectangle([0, H - 10, W, H], fill=(0, 0, 20, 150))
+                    d2.rectangle([0, 0, 12, H], fill=(0, 0, 20, 110))
+                    d2.rectangle([W - 12, 0, W, H], fill=(0, 0, 20, 110))
+            elif k == "shockring":               # utvidgande stötvågsring
+                at = op.get("at", 1.0)
+                if at <= t < at + 0.85:
+                    q = (t - at) / 0.85
+                    fx, fy = op.get("focus", (160, GROUND_Y - 10))
+                    rr2 = int(8 + 130 * q)
+                    for off, al in ((0, 200), (4, 120), (8, 60)):
+                        d2.ellipse([fx - rr2 - off, fy - (rr2 + off) // 3,
+                                    fx + rr2 + off, fy + (rr2 + off) // 3],
+                                   outline=(255, 240, 190, int(al * (1 - q))))
+            elif k == "word":                    # klassisk onomatopoetik-burst
+                at = op.get("at", 1.0)
+                if at <= t < at + 0.85:
+                    q = min(1.0, (t - at) / 0.12)
+                    img = _word_burst(img, op.get("word", "BAM"), op.get("pos"),
+                                      q, (t - at))
+                    d2 = ImageDraw.Draw(img, "RGBA")
+            elif k == "fisheye":                 # öppning: världen vecklas ut
+                if op.get("t0", 0.0) <= t < op.get("t1", 1.2):
+                    img = _fisheye(img, 0.35)
+                    d2 = ImageDraw.Draw(img, "RGBA")
+            elif k == "wipe":                    # anime-övergång mellan scener
+                ln = op.get("len", 0.28)
+                p = min(1.0, t / ln) if t < ln else 1.0
+                if p < 1.0:
+                    _draw_wipe(d2, op.get("style", 0), p)
+
         # letterbox SIST (breven ovanpå allt)
         bars = None
         for op in self.cam:
@@ -1597,17 +1824,27 @@ class Scene:
                        (170, 235, 255)][int(t * 2 + p["ph"]) % 4]
                 d.point((x, y), fill=col)
 
-    def _freeze_t(self, t):
-        """Anime-hold: under ett 'hold'-op fryses ALL animation på rutan."""
+    def _warp_t(self, t):
+        """Tidskrökning: 'hold' = fryst, 'slowmo' = Matrix-tempo i fönstret."""
+        events = []
         for op in self.cam:
-            if op.get("kind") == "hold":
-                at = op.get("at", 1.0)
-                if at <= t < at + op.get("len", 0.28):
-                    return at
-        return t
+            k = op.get("kind")
+            if k == "hold":
+                events.append((op.get("at", 1.0), op.get("at", 1.0) + op.get("len", 0.28), 0.0))
+            elif k == "slowmo":
+                events.append((op.get("t0", 0.0), op.get("t1", 1.0), op.get("scale", 0.35)))
+        events.sort()
+        adj = 0.0
+        for a, b, s in events:
+            if t <= a:
+                break
+            if t <= b:
+                return a - adj + (t - a) * s
+            adj += (b - a) * (1 - s)
+        return t - adj
 
     def frame(self, t):
-        t = self._freeze_t(t)
+        t = self._warp_t(t)
         img = self.sky.copy()
         self._draw_stars(img, t)
         if self.rays is not None:
@@ -1631,4 +1868,5 @@ class Scene:
         self._draw_actors(img, t)
         self._draw_hoppers(img, t)
         self._draw_particles(img, t)
+        self._draw_foreground(img, t)      # FÖRGRUND sist av världslagren = djup
         return self._apply_camera(img, t)

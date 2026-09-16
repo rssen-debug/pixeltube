@@ -317,6 +317,39 @@ Degradation rule: sakuga cues are only booked on beats that earn them
 (build_beats `impact` / group-run / mystery / final scene). If everything
 is intense, nothing is.
 
+## 9d. v9 – CINEMA GRADE (depth, light, transformation, time)
+
+Second research pass (animation cinematography, Attack on Titan direction,
+"stunning scene" teardowns). Techniques now in the engine:
+
+* **3-layer depth** – a baked foreground layer of dark grass/rock/trunk
+  silhouettes scrolls at 27 px/s IN FRONT of actors (`_draw_foreground`).
+  Foreground framing = instant cinema.
+* **Hero light** – rim-lit character frames (`_rim_light`: warm 1 px edge
+  from above + facing side) + per-world ambient tint (`scene_tint` blends
+  16% of the world's palette into every sprite). Characters sit IN the
+  light of their world.
+* **God rays** enabled for forest & candy palettes.
+* **Slow motion** – camera op `slowmo` warps parametric time (`_warp_t`,
+  scale 0.34) with vignette bars. Booked automatically when a victim DUCKS
+  an attack = the Matrix dodge.
+* **Transformation (`powerup`)** – 2.8 s cycle: dark gather (tremble +
+  rising void motes + ground ring) → release (3-column flame aura, hover,
+  debris losing gravity, ground cracks) → sustained glow. Verbs:
+  awakens/unleashes/erupts/ascends. SFX: riser → boom.
+* **Impact audio** – sub `boom()` at every impact, `riser()` under every
+  charge. Synced from beats, not from loops.
+* **Shockwave ring** expanding at contact.
+* **Onomatopoeia** – pixellated "BAAM" word-burst on hand-to-hand hits.
+* **Wipe transitions** – diagonal / venetian blinds / iris reveal between
+  scenes (`wipe` op, style = seed % 3).
+* **Anamorphic opening** – subtle `fisheye` warp for the first 1.3 s of
+  every episode: the world unrolls.
+
+BOOKING RULES (cam_plan): every ciné-cue attaches to a beat, never spam.
+sakuga layer per gag, depth/light layers always on, slow-mo only on dodges,
+powerup only where the script earns it. Intensity is a budget.
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's

@@ -222,6 +222,12 @@ def _loop_sfx(act, dur, phase=0.0):
         while k < dur:
             put(k, sfxmod.sparkle(), 0.22)
             k += 2.6
+    elif act == "powerup":
+        k = phase
+        while k < dur:
+            put(k, sfxmod.riser(), 0.40)         # laddningen
+            put(k + 0.90, sfxmod.boom(), 0.55)   # auran exploderar
+            k += 2.8
     return tr
 
 
@@ -253,21 +259,23 @@ def build_beats(text, acts, cast, dur):
             d["move"] = move
         return d
 
-    att = next((n for n in cast if acts.get(n) in ("hit", "fire")), None)
+    att = next((n for n in cast if acts.get(n) in ("hit", "fire", "powerup")), None)
     if att:
         t_ev = 1.1
+        power_up = acts[att] == "powerup"
         beats = {att: [seg(0.0, t_ev, "run", move="enter_l"),
-                       seg(t_ev, t_ev + 2.0, acts[att]),
-                       seg(t_ev + 2.0, None, None)]}
-        impact = t_ev + (0.95 if acts[att] == "fire" else 0.45)
+                       seg(t_ev, t_ev + (3.0 if power_up else 2.0), acts[att]),
+                       seg(t_ev + (3.0 if power_up else 2.0), None, None)]}
+        impact = t_ev + (1.0 if power_up else 0.95 if acts[att] == "fire" else 0.45)
         for o in [n for n in cast if n != att]:
             ra = acts.get(o)
             ra = ra if ra in ("duck", "shock", "fall") else \
-                ("fall" if acts[att] == "fire" else "shock")
+                ("shock" if power_up else "fall" if acts[att] == "fire" else "shock")
             beats[o] = [seg(0.0, impact, None, move="enter_r"),
                         seg(impact, impact + 1.9, ra),
                         seg(impact + 1.9, None, None)]
-        return beats, impact
+        return beats, impact, ra
+    react = next((acts.get(n) for n in cast if acts.get(n) == "duck"), None)
 
     beats = {}
     for idx, n in enumerate(cast):
@@ -279,26 +287,36 @@ def build_beats(text, acts, cast, dur):
             beats[n] = [seg(0.0, 0.55, None, move=entr), seg(0.55, None, a)]
         else:
             beats[n] = [seg(0.0, None, None)]
-    return beats, None
+    return beats, None, next((acts.get(n) for n in cast if acts.get(n) in ("duck", "shock", "fall")), None)
 
 
 CHAR_X_MID = 82 + 52 + 14   # mitt emellan duo-aktörer (impact-fokus)
 
 
-def cam_plan(i, n_scenes, dur, impact, mystery, a=None):
-    """Kameraplan: sakuga-slajdar alla gags med holds/flash/burst/lines."""
+def cam_plan(i, n_scenes, dur, impact, mystery, a=None, react=None, seed=0):
+    """Kameraplan: sakuga + cinema-grade cues."""
     plan = []
     both_run = a and all(x == "run" for x in a.values())
+    has_attacker = a and any(x in ("hit", "fire", "powerup") for x in a.values())
     if impact is not None:
         plan.append({"kind": "punch", "at": max(0.35, impact - 1.05), "z": 0.42, "hold": 2.4, "focus": (150, 108)})
-        plan.append({"kind": "hold", "at": max(0.6, impact - 0.28), "len": 0.28})
+        if react == "duck":                     # MATRIX-DODGE: hela världen saktar in
+            plan.append({"kind": "slowmo", "t0": max(0.3, impact - 0.75), "t1": impact + 0.30,
+                         "scale": 0.34})
+        else:
+            plan.append({"kind": "hold", "at": max(0.6, impact - 0.28), "len": 0.28})
         plan.append({"kind": "impactflash", "at": impact})
+        plan.append({"kind": "shockring", "at": impact + 0.04})
         plan.append({"kind": "burst", "at": impact, "dur": 0.75, "focus": (CHAR_X_MID, 92)})
         plan.append({"kind": "speedlines", "t0": impact - 0.9, "t1": impact + 0.9,
                      "mode": "ring", "focus": (CHAR_X_MID, 92)})
         plan.append({"kind": "shake", "at": impact, "amp": 5})
+        if has_attacker and not a.get("powerup_guard"):
+            pass
     elif both_run:
         plan.append({"kind": "speedlines", "t0": 0.5, "t1": max(2.5, dur - 0.5), "mode": "horiz"})
+    if impact is not None and a and "hit" in a.values():
+        plan.append({"kind": "word", "at": impact, "word": "BAAM", "pos": (150, 55)})
     if mystery:
         plan.append({"kind": "push", "dur": dur, "z": 0.20, "focus": (272, 102)})
         plan.append({"kind": "letterbox"})
@@ -306,6 +324,10 @@ def cam_plan(i, n_scenes, dur, impact, mystery, a=None):
         plan.append({"kind": "push", "dur": dur, "z": 0.26})
         plan.append({"kind": "letterbox", "h": 15})
         plan.append({"kind": "dutch", "angle": -5})
+    if i > 0:
+        plan.append({"kind": "wipe", "style": seed % 3, "len": 0.30})
+    if i == 0:
+        plan.append({"kind": "fisheye", "t0": 0.0, "t1": 1.3})
     return plan
 
 
@@ -384,15 +406,17 @@ def main():
     for i in range(len(scenes)):
         durs.append((starts[i + 1] - starts[i]) if i < len(scenes) - 1
                     else (total - starts[i]))
-    scene_objs, scene_actions, scene_beats = [], [], []
+    scene_objs, scene_actions, scene_beats, scene_impacts = [], [], [], []
     for i, s in enumerate(scenes):
         acts = storymod.parse_actions(s["text"], cast)
         if s["action"] and not acts.get(cast[0]):
             acts[cast[0]] = s["action"]
         scene_actions.append(acts)
-        beats, impact = build_beats(s["text"], acts, cast, durs[i])
+        beats, impact, react = build_beats(s["text"], acts, cast, durs[i])
         scene_beats.append(beats)
-        plan = cam_plan(i, len(scenes), durs[i], impact, s.get("mystery"), a=acts)
+        scene_impacts.append((impact, react))
+        plan = cam_plan(i, len(scenes), durs[i], impact, s.get("mystery"), a=acts,
+                        react=react, seed=seed * 97 + i)
         scene_objs.append(engine.Scene(
             s["setting"], seed * 97 + i,
             actors=[(chars[n], beats[n]) for n in cast],
@@ -422,6 +446,19 @@ def main():
     for i, sc in enumerate(scenes):
         st = starts[i]
         dur_i = (starts[i + 1] - st) if i < len(scenes) - 1 else (total - st)
+        imp, _r = scene_impacts[i]
+        if imp is not None:                       # v9-ljudbilder kopplade till beats
+            act_main = next((scene_actions[i][n] for n in cast
+                             if scene_actions[i][n] in ("hit", "fire", "powerup")), None)
+            off = int((st + imp) * SR)
+            b = sfxmod.boom()
+            if off + len(b) <= len(mix):
+                mix[off:off + len(b)] += b * 0.7
+            if act_main in ("fire", "powerup"):
+                r0 = int((st + (imp - (0.95 if act_main == "fire" else 1.0)) + 0.05) * SR)
+                if 0 <= r0:
+                    rr_ = sfxmod.riser()
+                    mix[r0:r0 + len(rr_)] += rr_[: max(0, min(len(rr_), len(mix) - r0))] * 0.75
         for ai, name in enumerate(cast):
             tr = _loop_bed(scene_beats[i][name], dur_i, phase=ai * 0.31)
             off = int(st * SR)

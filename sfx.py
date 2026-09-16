@@ -134,7 +134,31 @@ def flame():
     return ((sm * 5 + rumble) * env * 0.8 + crackle * 0.5).astype(np.float32)
 
 
+def boom():
+    """808-subbjänk vid impact: låg duns som väntar knäppet."""
+    rng = np.random.default_rng(31)
+    n = int(SR * 0.30)
+    t = np.arange(n) / SR
+    f = 60 - 34 * t / 0.30
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    body = np.sin(ph) * np.exp(-t * 10)
+    snap = rng.uniform(-1, 1, n) * np.exp(-t * 90) * 0.5
+    return ((body * 1.6 + snap) * 0.8).astype(np.float32)
+
+
+def riser():
+    """Laddning som suser uppåt (Shepard-aktig)."""
+    n = int(SR * 1.0)
+    t = np.arange(n) / SR
+    f = 95 * (2.0 ** (t / 0.5))          # dubbla frekvensen var 0.5s
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    w = np.sign(np.sin(ph)) * 0.35 + np.sin(ph) * 0.5
+    env = np.sin(np.linspace(0, np.pi / 2, n)) ** 0.7
+    return (w * env * 0.5).astype(np.float32)
+
+
 def make(name):
     return {"boing": boing, "pop": pop, "whoosh": whoosh,
             "splash": splash, "sparkle": sparkle, "fanfare": fanfare,
-            "thud": thud, "bonk": bonk, "snore": snore, "flame": flame}[name]()
+            "thud": thud, "bonk": bonk, "snore": snore, "flame": flame,
+            "boom": boom, "riser": riser}[name]()
