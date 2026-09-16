@@ -436,13 +436,13 @@ class Actor:
         return self.blocks[-1][2] if self.blocks else "idle"
 
     def face_at(self, t):
-        eyes, bruise = "normal", False
-        for ft, fe, fb in self.faces:
-            if t >= ft * -1 and ft < 0:   # negativ = tills nästa positiva
-                pass
+        eyes, bruise, smouth = "normal", False, None
+        for f in self.faces:
+            ft, fe, fb = f[0], f[1], f[2]
             if t >= abs(ft):
                 eyes, bruise = fe, fb
-        return eyes, bruise
+                smouth = f[3] if len(f) > 3 else None
+        return eyes, bruise, smouth
 
 
 # ===========================================================================
@@ -760,6 +760,24 @@ def apply_camera(img, t, ops):
     return img
 
 
+def fireflies(img, t, n=9, seed=7):
+    """Svävande glöd-punkter över kajen (16-bit-natt)."""
+    import random as _rnd
+    rnd = _rnd.Random(seed)
+    d = ImageDraw.Draw(img, "RGBA")
+    for i in range(n):
+        bx, by = rnd.uniform(12, 308), rnd.uniform(46, 142)
+        ph, sp = rnd.uniform(0, 6.28), rnd.uniform(0.35, 0.9)
+        x = bx + math.sin(t * sp + ph) * 16
+        y = by + math.cos(t * sp * 0.7 + ph * 2) * 7
+        a = int(110 + 110 * math.sin(t * 1.9 * sp + ph))
+        if a <= 25:
+            continue
+        d.point((int(x), int(y)), fill=(255, 240, 170, min(255, a + 40)))
+        if a > 140:
+            d.point((int(x) + 1, int(y)), fill=(255, 240, 170, a - 120))
+
+
 def speedlines(img, cx, cy, n=26, col=(255, 255, 255, 120)):
     d = ImageDraw.Draw(img, "RGBA")
     for i in range(n):
@@ -946,10 +964,14 @@ def joints_for(pose, t):
 
 
 class Suit:
-    """Outfit-färger per person."""
-    def __init__(self, jacket, pants, boots, skin, outl=(18, 16, 24)):
+    """Outfit-färger + KROPPSBYGGNAD per person (muskler/kurvor/siluett)."""
+    def __init__(self, jacket, pants, boots, skin, outl=(18, 16, 24),
+                 arm_w=5, leg_t=1.0, tor_w=11, hips=8, bust=0, pads=0):
         self.jacket, self.pants, self.boots, self.skin, self.outl = \
             jacket, pants, boots, skin, outl
+        self.arm_w, self.leg_t = arm_w, leg_t      # arm/ben-tjocklek (muskler)
+        self.tor_w, self.hips = tor_w, hips        # torso-bredd / höft-bredd
+        self.bust, self.pads = bust, pads          # byst (0/1/2) / axelpads
 
 
 def _dk(c, f=0.62):
@@ -973,8 +995,8 @@ def draw_body(img, suit, j, scale=1.0):
     # ben: bakre (vänster) mörkare
     for (hip, kn, ft, colp) in ((hipL, knL, ftL, _dk(suit.pants)),
                                 (hipR, knR, ftR, suit.pants)):
-        _cap(d, hip, kn, colp, int(JW * scale), out)
-        _cap(d, kn, ft, colp, int(JW2 * scale), out)
+        _cap(d, hip, kn, colp, int(JW * suit.leg_t * scale), out)
+        _cap(d, kn, ft, colp, int(JW2 * suit.leg_t * scale), out)
         # boot: box + tå
         bx, by = ft
         d.rectangle([bx - 3, by - 5, bx + 4, by], fill=out)
@@ -982,12 +1004,29 @@ def draw_body(img, suit, j, scale=1.0):
         d.rectangle([bx + 3, by - 4, bx + 6 + (1 if ft is ftR else 0), by - 2], fill=suit.boots)
         d.line([(bx + 3, by - 3), (bx + 6, by - 2)], fill=out)
     # bälte/bäcken
-    d.ellipse([P("pelvis")[0] - 8, P("pelvis")[1] - 4, P("pelvis")[0] + 8, P("pelvis")[1] + 4],
-              fill=suit.pants)
-    # torso (kapsel-axlar + kapsel-kropp)
-    _cap(d, hipL, hipR, suit.jacket, int(9 * scale), out)
-    _cap(d, shL, shR, suit.jacket, int(8 * scale), out)
-    _cap(d, P("pelvis"), P("neck"), suit.jacket, int(11 * scale), out)
+    d.ellipse([P("pelvis")[0] - suit.hips, P("pelvis")[1] - 4,
+               P("pelvis")[0] + suit.hips, P("pelvis")[1] + 4], fill=suit.pants)
+    # torso (kapsel-axlar + kapsel-kropp, bredd per karaktär)
+    _cap(d, hipL, hipR, suit.jacket, int(max(4, suit.tor_w - 2) * scale), out)
+    _cap(d, shL, shR, suit.jacket, int(max(4, suit.tor_w - 3) * scale), out)
+    _cap(d, P("pelvis"), P("neck"), suit.jacket, int(suit.tor_w * scale), out)
+    # BYST-kurvor (valfritt, nivå 1-2)
+    if suit.bust >= 1:
+        cx0 = (shL[0] + shR[0]) // 2
+        cy0 = shL[1] + 6
+        rr = 2 + suit.bust
+        for bx0 in (cx0 - 3, cx0 + 3):
+            d.ellipse([bx0 - rr, cy0 - rr, bx0 + rr, cy0 + rr - 1],
+                      fill=suit.jacket, outline=out)
+        d.line([(cx0, cy0 - rr + 1), (cx0, cy0 + 1)], fill=_dk(suit.jacket, 0.62))
+        d.line([(cx0 - rr - 2, cy0 - 1), (cx0 - rr, cy0 - rr)],
+               fill=tuple(min(255, int(v * 1.25)) for v in suit.jacket[:3]))
+    # AXELPADS (valfritt, skurk-rymbd)
+    if suit.pads:
+        for shx in (shL[0], shR[0]):
+            d.rectangle([shx - 4, shL[1] - 7, shx + 4, shL[1] - 1],
+                        fill=_dk(suit.jacket, 0.9), outline=out)
+            d.point((shx - 4, shL[1] - 7), fill=suit.boots)
     # 3-tons-rampa: höger sida mörkare, vänster kant glans (ljus från vänster)
     _cap(d, (P("pelvis")[0] + 7, P("pelvis")[1]), (shR[0] + 2, shR[1]),
          _dk(suit.jacket, 0.8), int(6 * scale), _dk(suit.jacket, 0.8))
@@ -998,11 +1037,12 @@ def draw_body(img, suit, j, scale=1.0):
     nx, ny = P("neck")
     d.polygon([(nx - 5, ny + 2), (nx, ny - 3), (nx + 5, ny + 2)], fill=_dk(suit.jacket, 0.8))
     d.line([(nx, ny + 2), (nx, P("pelvis")[1] + 2)], fill=_dk(suit.jacket, 0.7))
-    # armar: bakre (vänster) före torso-arm-konflikt: rita bakre arm FÖRE torso? enkelt: båda efter
+    # armar (tjocklek = muskler per karaktär)
+    aw = int(suit.arm_w * scale)
     for (sh, el, hd, cols_) in ((shL, P("elbowL"), P("handL"), _dk(suit.jacket)),
                                 (shR, P("elbowR"), P("handR"), suit.jacket)):
-        _cap(d, sh, el, cols_, int(5 * scale), out)
-        _cap(d, el, hd, cols_, int(4 * scale), out)
+        _cap(d, sh, el, cols_, aw, out)
+        _cap(d, el, hd, cols_, max(2, aw - 1), out)
         hx, hy = hd
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], fill=suit.skin)
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], outline=out)
@@ -1069,7 +1109,8 @@ def make_head_images(cols, hair_style, iris):
     white = (255, 255, 255, 255)
 
     heads = {}
-    for state in ("normal", "blink", "wide", "angry", "x", "spark", "sad", "whiteout"):
+    for state in ("normal", "blink", "wide", "angry", "x", "spark", "sad", "whiteout",
+                  "happy"):
         im = _base_head(skin, out)
         d = ImageDraw.Draw(im)
         _hair(d, hair_style, cols["H"], out)
@@ -1084,6 +1125,9 @@ def make_head_images(cols, hair_style, iris):
             if state == "x":
                 d.line([(cx - 3, cy - 3), (cx + 2, cy + 3)], fill=out)
                 d.line([(cx + 2, cy - 3), (cx - 3, cy + 3)], fill=out)
+                return
+            if state == "happy":                    # ^^ skrattbågar
+                d.arc([cx - 3, cy - 4, cx + 3, cy + 2], 190, 350, fill=out, width=1)
                 return
             if state == "spark":
                 for dx, dy in ((0, -4), (-3, -1), (2, -1), (-2, 2), (1, 2), (0, 4)):
@@ -1111,6 +1155,8 @@ def make_head_images(cols, hair_style, iris):
             d.line([(6, 15), (12, 17)], fill=out, width=1)
             d.line([(27, 15), (21, 17)], fill=out, width=1)
             d.line([(6, 14), (12, 15)], fill=_dk(out, 0.7))
+        elif state == "happy":
+            pass
         elif state == "sad":
             d.line([(6, 17), (12, 15)], fill=out)
             d.line([(27, 17), (21, 15)], fill=out)
@@ -1148,6 +1194,16 @@ def make_head_images(cols, hair_style, iris):
                 d.line([(gx, 25), (gx, 29)], fill=_dk((250, 250, 246), 0.55))
             d.line([(11, 27), (23, 27)], fill=_dk((250, 250, 246), 0.5))
             d.rectangle([11, 25, 11, 29], outline=out)
+        elif mouth == "smile":                   # le: mjuk uppåtbåge
+            d.line([(13, 27), (21, 26)], fill=_dk(skin, 0.55))
+            d.point((21, 25), fill=_dk(skin, 0.55))
+        elif mouth == "smirk":                   # smyg/SMIRK: enda mungipan upp
+            d.line([(14, 27), (20, 27)], fill=_dk(skin, 0.55))
+            d.line([(20, 27), (22, 25)], fill=_dk(skin, 0.55))
+        elif mouth == "laugh":                   # skratt: öppen + tänder + tunga
+            d.rectangle([12, 25, 22, 29], fill=mc)
+            d.rectangle([12, 25, 22, 26], fill=teeth)
+            d.rectangle([14, 27, 20, 29], fill=tongue)
         elif mouth == "frown":
             d.line([(13, 28), (21, 27)], fill=out)
             d.point((12, 29), fill=out); d.point((22, 27), fill=out)
@@ -1179,9 +1235,11 @@ class AnimeChar:
     """Skelett-animehjälte. draw() renderar kropp+huvud som EN bild (cachad)."""
 
     def __init__(self, name, palette, hair="spiky", iris=(200, 120, 40),
-                 suit=None, scale=1.0, voice_pitch="ren"):
+                 suit=None, scale=1.0, voice_pitch="ren", scale_x=1.0, scale_y=1.0):
         self.name = name
         self.scale = scale
+        self.scale_x, self.scale_y = scale_x, scale_y
+        self.ground_px = int(GROUND_CV * scale * scale_y)
         self.voice_pitch = voice_pitch
         self.suit = suit or Suit(jacket=palette.get("T", (50, 60, 120)),
                                  pants=palette.get("P", (50, 50, 60)),
@@ -1213,8 +1271,9 @@ class AnimeChar:
         nx = BODY_CV_W // 2 + int(j["neck"][0])
         ny = GROUND_CV - int(j["neck"][1])
         img.alpha_composite(head, (nx - head.width // 2, ny - head.height + 8))
-        if self.scale != 1.0:
-            img = img.resize((int(BODY_CV_W * self.scale), int(BODY_CV_H * self.scale)), NEAREST)
+        if (self.scale, self.scale_x, self.scale_y) != (1.0, 1.0, 1.0):
+            img = img.resize((int(BODY_CV_W * self.scale * self.scale_x),
+                              int(BODY_CV_H * self.scale * self.scale_y)), NEAREST)
         self._cache[key] = img
         return img
 

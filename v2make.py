@@ -37,26 +37,49 @@ SERIES = "VOLT BREAKER"
 # ROLLLISTA (v2 – människor!)                                               #
 # -------------------------------------------------------------------------- #
 def build_cast():
-    suit = E.Suit
     return {
+        # REN — atletisk medelfighter (baslinjen)
         "ren":  E.AnimeChar("ren",  {"H": (245, 130, 40), "S": (255, 215, 175), "T": (42, 64, 150),
                                      "P": (48, 48, 66), "B": (72, 52, 40), "K": (24, 22, 28)},
-                              hair="spiky", iris=(200, 120, 40), voice_pitch="ren"),
+                              hair="spiky", iris=(200, 120, 40), voice_pitch="ren",
+                              scale_x=0.98, scale_y=1.0,
+                              suit=E.Suit((42, 64, 150), (48, 48, 66), (72, 52, 40), (255, 215, 175),
+                                          arm_w=6, tor_w=11, hips=7)),
+        # YUKI — lång smal fäktare
         "yuki": E.AnimeChar("yuki", {"H": (234, 236, 248), "S": (252, 226, 200), "T": (52, 54, 64),
                                      "P": (30, 30, 44), "B": (40, 36, 40), "K": (24, 22, 28)},
-                              hair="long", iris=(110, 190, 235), voice_pitch="yuki"),
+                              hair="long", iris=(110, 190, 235), voice_pitch="yuki",
+                              scale_x=0.90, scale_y=1.06,
+                              suit=E.Suit((52, 54, 64), (30, 30, 44), (40, 36, 40), (252, 226, 200),
+                                          arm_w=4, leg_t=0.9, tor_w=9, hips=6)),
+        # MIKA — kurvig, breda höfter
         "mika": E.AnimeChar("mika", {"H": (245, 120, 170), "S": (255, 218, 185), "T": (186, 50, 78),
                                      "P": (60, 60, 90), "B": (90, 50, 66), "K": (24, 22, 28)},
-                              hair="pony", iris=(210, 80, 150), voice_pitch="mika"),
+                              hair="pony", iris=(210, 80, 150), voice_pitch="mika",
+                              scale_x=0.90, scale_y=1.0,
+                              suit=E.Suit((186, 50, 78), (60, 60, 90), (90, 50, 66), (255, 218, 185),
+                                          arm_w=4, leg_t=0.85, tor_w=9, hips=10, bust=2)),
+        # KABA — muskelmassiv skurk med axelpads
         "kaba": E.AnimeChar("kaba", {"H": (44, 44, 54), "S": (192, 196, 206), "T": (110, 30, 42),
                                      "P": (40, 40, 48), "B": (30, 28, 30), "K": (20, 16, 22)},
-                              hair="hawk", iris=(200, 60, 60), scale=1.12, voice_pitch="kaba"),
+                              hair="hawk", iris=(200, 60, 60), voice_pitch="kaba",
+                              scale_x=1.22, scale_y=1.12,
+                              suit=E.Suit((110, 30, 42), (40, 40, 48), (30, 28, 30), (192, 196, 206),
+                                          arm_w=8, leg_t=1.25, tor_w=14, hips=10, pads=1)),
+        # HOOD — spöklik lång
         "hood": E.AnimeChar("hood", {"H": (22, 22, 30), "S": (34, 34, 44), "T": (26, 26, 38),
                                      "P": (24, 24, 34), "B": (22, 22, 32), "K": (10, 10, 16)},
-                              hair="long", iris=(90, 90, 120), scale=0.95, voice_pitch="narr"),
+                              hair="long", iris=(90, 90, 120), voice_pitch="narr",
+                              scale_x=0.88, scale_y=1.08,
+                              suit=E.Suit((26, 26, 38), (24, 24, 34), (22, 22, 32), (34, 34, 44),
+                                          arm_w=3, tor_w=8, hips=6)),
+        # NAYA — petite, lätta kurvor
         "naya": E.AnimeChar("naya", {"H": (120, 220, 230), "S": (235, 230, 240), "T": (38, 78, 96),
                                      "P": (50, 54, 72), "B": (30, 40, 48), "K": (16, 20, 28)},
-                              hair="long", iris=(150, 240, 240), scale=0.97, voice_pitch="naya"),
+                              hair="long", iris=(150, 240, 240), voice_pitch="naya",
+                              scale_x=0.86, scale_y=0.97,
+                              suit=E.Suit((38, 78, 96), (50, 54, 72), (30, 40, 48), (235, 230, 240),
+                                          arm_w=3, leg_t=0.8, tor_w=8, hips=8, bust=1)),
     }
 
 
@@ -200,25 +223,26 @@ def episode_001(cast):
                 {"kind": "shake", "t0": 12.3, "t1": 12.95, "amp": 6}],
         "actors": {
             "ren": {"track": [(0, 84, False), (1.0, 56, False), (2.2, 60, False),
-                              (5.0, 96, False), (11.9, 96, False), (12.15, 208, False),
-                              (13.0, 210, False), (21.4, 210, False)],
+                              (5.0, 96, False), (11.9, 96, False), (12.15, 196, False),
+                              (13.0, 200, False), (21.4, 204, False)],
                     "blocks": [(0, 0.75, "idle"), (0.75, 2.1, "hurt"), (2.1, 4.9, "idle"),
                                (4.9, 6.1, "point"), (6.1, 11.9, "idle"),
                                (11.9, 12.15, "mov"), (12.15, 12.5, "punch"),
                                (12.5, 12.75, "idle"), (12.75, 13.05, "punch"),
                                (13.05, 99, "idle")],
                     "faces": [(0.75, "x", True), (2.1, "sad", True), (4.9, "angry", False),
-                              (16.0, "spark", False)]},
-            "yuki": {"track": [(0, 40, False), (2.3, 150, False), (3.4, 168, False),
-                               (21.4, 168, False)],
-                     "blocks": [(0, 2.2, "idle"), (2.2, 2.6, "punch"), (2.6, 99, "guard")],
-                     "faces": [(2.2, "angry", False)]},
+                              (16.0, "spark", False, "smirk")]},
+            "yuki": {"track": [(0, 40, False), (2.15, 162, False), (3.4, 172, False),
+                               (21.4, 172, False)],
+                     "blocks": [(0, 2.1, "idle"), (2.1, 2.5, "punch"), (2.5, 99, "guard")],
+                     "faces": [(2.1, "angry", False, "smirk")]},
             "mika": {"track": [(0, 226, True), (10.0, 110, True), (21.4, 112, True)],
                      "blocks": [(0, 6.4, "guard"), (6.4, 8.6, "mov"), (8.6, 99, "idle")],
-                     "faces": [(15.4, "spark", False)]},
-            "kaba": {"track": [(0, 230, True), (4.4, 236, True), (13.1, 236, True),
-                               (13.65, 340, True), (21.4, 360, True)],
-                     "blocks": [(0, 0.75, "guard"), (0.75, 1.0, "punch"),
+                     "faces": [(15.4, "happy", False, "laugh")]},
+            "kaba": {"track": [(0, 230, True), (0.45, 150, True), (0.62, 112, True),
+                               (1.7, 112, True), (2.3, 188, True), (4.4, 236, True),
+                               (13.1, 236, True), (13.65, 340, True), (21.4, 360, True)],
+                     "blocks": [(0, 0.55, "guard"), (0.55, 0.75, "mov"), (0.75, 1.0, "punch"),
                                 (1.0, 2.3, "guard"), (2.3, 3.4, "hurt"), (3.4, 12.9, "guard"),
                                 (12.9, 13.5, "hurt"), (13.5, 99, "hurt")],
                      "faces": [(2.3, "x", True), (3.4, "angry", False), (12.3, "x", True)]},
@@ -234,15 +258,15 @@ def episode_001(cast):
                   (12.2, "thud", 0.9), (12.4, "boom", 1.0), (12.8, "boom", 0.9),
                   (15.4, "fanfare", 0.8), (15.6, "sparkle", 0.6)],
         "fx": [
-            {"kind": "impact", "t": 0.75, "x": 74, "y": 92, "invert": True},
-            {"kind": "kiai", "t": 0.75, "x": 74, "y": 92},
-            {"kind": "slash", "t": 2.3, "x": 196, "y": 92},
-            {"kind": "kiai", "t": 2.55, "x": 212, "y": 92},
+            {"kind": "impact", "t": 0.75, "x": 92, "y": 92, "invert": True},
+            {"kind": "kiai", "t": 0.75, "x": 92, "y": 92},
+            {"kind": "slash", "t": 2.3, "x": 184, "y": 92},
+            {"kind": "kiai", "t": 2.45, "x": 190, "y": 92},
             {"kind": "aura", "t0": 4.9, "t1": 11.9, "x_track": "ren", "hue": "gold"},
-            {"kind": "impact", "t": 12.3, "x": 226, "y": 90, "invert": True, "word": "BAAM"},
-            {"kind": "kiai", "t": 12.3, "x": 226, "y": 90},
-            {"kind": "speedwin", "t0": 11.9, "t1": 12.6, "cx": 170, "cy": 92},
-            {"kind": "speedwin", "t0": 12.75, "t1": 13.3, "cx": 226, "cy": 90},
+            {"kind": "impact", "t": 12.3, "x": 220, "y": 90, "invert": True, "word": "BAAM"},
+            {"kind": "kiai", "t": 12.3, "x": 220, "y": 90},
+            {"kind": "speedwin", "t0": 11.9, "t1": 12.6, "cx": 160, "cy": 92},
+            {"kind": "speedwin", "t0": 12.75, "t1": 13.3, "cx": 216, "cy": 90},
         ],
         "dust_at": (13.5, 246),
     })
@@ -365,27 +389,28 @@ def episode_002(cast):
                 {"kind": "shake", "t0": 12.5, "t1": 13.1, "amp": 6}],
         "actors": {
             "ren": {"track": [(0, 84, False), (1.0, 58, False), (4.8, 90, False),
-                              (12.0, 96, False), (12.2, 206, False), (20.5, 210, False)],
+                              (12.0, 96, False), (12.2, 196, False), (20.5, 200, False)],
                     "blocks": [(0, 0.75, "idle"), (0.75, 2.0, "hurt"), (2.0, 4.9, "idle"),
                                (4.9, 6.2, "point"), (6.2, 12.0, "idle"),
                                (12.0, 12.35, "mov"), (12.35, 12.65, "punch"),
                                (12.65, 12.9, "idle"), (12.9, 13.2, "punch"),
                                (13.2, 99, "idle")],
                     "faces": [(0.75, "x", True), (2.0, "sad", True), (4.9, "angry", False),
-                              (15.6, "spark", False)]},
+                              (15.6, "spark", False, "smirk")]},
             "naya": {"track": [(0, 250, True), (2.4, 150, True), (3.4, 250, True),
                                (20.5, 236, True)],
                      "blocks": [(0, 2.3, "idle"), (2.3, 2.9, "mov"), (2.9, 3.5, "mov"),
                                 (3.5, 99, "point")],
                      "faces": [(1.2, "wide", False)]},
-            "yuki": {"track": [(0, 40, False), (2.5, 148, False), (20.5, 166, False)],
-                     "blocks": [(0, 2.4, "guard"), (2.4, 2.8, "punch"), (2.8, 99, "guard")],
-                     "faces": [(2.4, "angry", False)]},
+            "yuki": {"track": [(0, 40, False), (2.35, 162, False), (20.5, 172, False)],
+                     "blocks": [(0, 2.3, "guard"), (2.3, 2.7, "punch"), (2.7, 99, "guard")],
+                     "faces": [(2.3, "angry", False, "smirk")]},
             "mika": {"track": [(0, -60, False), (10.4, 112, True), (20.5, 112, True)],
                      "blocks": [(0, 6.6, "none"), (6.6, 8.8, "mov"), (8.8, 99, "idle")],
-                     "faces": [(15.2, "spark", False)]},
-            "kaba": {"track": [(0, 228, True), (13.0, 234, True), (13.7, 330, True),
-                               (20.5, 350, True)],
+                     "faces": [(15.2, "happy", False, "laugh")]},
+            "kaba": {"track": [(0, 228, True), (0.45, 150, True), (0.62, 112, True),
+                               (1.7, 112, True), (2.3, 188, True), (13.0, 234, True),
+                               (13.7, 330, True), (20.5, 350, True)],
                      "blocks": [(0, 0.75, "guard"), (0.75, 1.0, "punch"), (1.0, 2.3, "guard"),
                                 (2.3, 3.4, "hurt"), (3.4, 12.8, "guard"),
                                 (12.8, 13.4, "hurt"), (13.4, 99, "hurt")],
@@ -402,15 +427,15 @@ def episode_002(cast):
                   (12.4, "thud", 0.9), (12.6, "boom", 1.0), (13.0, "boom", 0.9),
                   (15.2, "fanfare", 0.8), (15.4, "sparkle", 0.6)],
         "fx": [
-            {"kind": "impact", "t": 0.75, "x": 74, "y": 92, "invert": True},
-            {"kind": "kiai", "t": 0.75, "x": 74, "y": 92},
-            {"kind": "slash", "t": 2.3, "x": 190, "y": 92},
-            {"kind": "slash", "t": 3.1, "x": 210, "y": 88},
+            {"kind": "impact", "t": 0.75, "x": 92, "y": 92, "invert": True},
+            {"kind": "kiai", "t": 0.75, "x": 92, "y": 92},
+            {"kind": "slash", "t": 2.45, "x": 184, "y": 92},
+            {"kind": "slash", "t": 3.1, "x": 200, "y": 88},
             {"kind": "aura", "t0": 4.9, "t1": 12.0, "x_track": "ren", "hue": "gold"},
-            {"kind": "impact", "t": 12.55, "x": 224, "y": 90, "invert": True, "word": "BAAM"},
-            {"kind": "kiai", "t": 12.55, "x": 224, "y": 90},
-            {"kind": "speedwin", "t0": 12.0, "t1": 12.7, "cx": 170, "cy": 92},
-            {"kind": "speedwin", "t0": 12.9, "t1": 13.5, "cx": 224, "cy": 90},
+            {"kind": "impact", "t": 12.55, "x": 220, "y": 90, "invert": True, "word": "BAAM"},
+            {"kind": "kiai", "t": 12.55, "x": 220, "y": 90},
+            {"kind": "speedwin", "t0": 12.0, "t1": 12.7, "cx": 160, "cy": 92},
+            {"kind": "speedwin", "t0": 12.9, "t1": 13.5, "cx": 216, "cy": 90},
         ],
         "dust_at": (13.6, 244),
     })
@@ -525,25 +550,26 @@ def episode_003(cast):
                 {"kind": "shake", "t0": 12.7, "t1": 13.4, "amp": 7}],
         "actors": {
             "ren": {"track": [(0, 84, False), (1.0, 56, False), (4.9, 92, False),
-                              (12.4, 96, False), (12.6, 206, False), (21.0, 210, False)],
+                              (12.4, 96, False), (12.6, 196, False), (21.0, 200, False)],
                     "blocks": [(0, 0.75, "guard"), (0.75, 2.0, "hurt"), (2.0, 4.9, "idle"),
                                (4.9, 6.2, "point"), (6.2, 12.4, "guard"),
                                (12.4, 12.7, "mov"), (12.7, 13.0, "punch"),
                                (13.0, 13.3, "idle"), (13.3, 13.6, "punch"),
                                (13.6, 99, "idle")],
                     "faces": [(0.75, "x", True), (2.0, "sad", True), (4.9, "angry", False),
-                              (15.0, "spark", False)]},
+                              (15.0, "spark", False, "smirk")]},
             "naya": {"track": [(0, 248, True), (6.8, 128, True), (21.0, 128, True)],
                      "blocks": [(0, 6.6, "idle"), (6.6, 7.6, "mov"), (7.6, 99, "point")],
                      "faces": [(4.2, "wide", False)]},
-            "yuki": {"track": [(0, 42, False), (2.5, 146, False), (21.0, 164, False)],
-                     "blocks": [(0, 2.4, "guard"), (2.4, 2.85, "punch"), (2.85, 99, "guard")],
-                     "faces": [(2.4, "angry", False)]},
+            "yuki": {"track": [(0, 42, False), (2.35, 162, False), (21.0, 172, False)],
+                     "blocks": [(0, 2.3, "guard"), (2.3, 2.75, "punch"), (2.75, 99, "guard")],
+                     "faces": [(2.3, "angry", False, "smirk")]},
             "mika": {"track": [(0, -60, False), (10.8, 112, True), (21.0, 112, True)],
                      "blocks": [(0, 7.0, "none"), (7.0, 9.2, "mov"), (9.2, 99, "idle")],
-                     "faces": [(14.8, "spark", False)]},
-            "kaba": {"track": [(0, 228, True), (13.2, 232, True), (13.9, 334, True),
-                               (21.0, 352, True)],
+                     "faces": [(14.8, "happy", False, "laugh")]},
+            "kaba": {"track": [(0, 228, True), (0.45, 150, True), (0.62, 112, True),
+                               (1.7, 112, True), (2.3, 188, True), (13.2, 232, True),
+                               (13.9, 334, True), (21.0, 352, True)],
                      "blocks": [(0, 0.75, "guard"), (0.75, 1.05, "punch"), (1.05, 2.3, "guard"),
                                 (2.3, 3.4, "hurt"), (3.4, 13.0, "guard"),
                                 (13.0, 13.6, "hurt"), (13.6, 99, "hurt")],
@@ -560,16 +586,16 @@ def episode_003(cast):
                   (12.9, "thud", 0.9), (13.1, "boom", 1.0), (13.5, "boom", 0.9),
                   (14.8, "fanfare", 0.9), (15.0, "sparkle", 0.6)],
         "fx": [
-            {"kind": "impact", "t": 0.75, "x": 74, "y": 92, "invert": True},
-            {"kind": "kiai", "t": 0.75, "x": 74, "y": 92},
-            {"kind": "slash", "t": 2.4, "x": 192, "y": 92},
-            {"kind": "kiai", "t": 2.7, "x": 208, "y": 92},
+            {"kind": "impact", "t": 0.75, "x": 92, "y": 92, "invert": True},
+            {"kind": "kiai", "t": 0.75, "x": 92, "y": 92},
+            {"kind": "slash", "t": 2.45, "x": 184, "y": 92},
+            {"kind": "kiai", "t": 2.65, "x": 190, "y": 92},
             {"kind": "aura", "t0": 4.9, "t1": 12.4, "x_track": "ren", "hue": "gold"},
             {"kind": "aura", "t0": 0.0, "t1": 13.0, "x_track": "kaba", "hue": "violet"},
-            {"kind": "impact", "t": 12.9, "x": 222, "y": 90, "invert": True, "word": "KRAKOOM"},
-            {"kind": "kiai", "t": 12.9, "x": 222, "y": 90},
-            {"kind": "speedwin", "t0": 12.4, "t1": 13.1, "cx": 170, "cy": 92},
-            {"kind": "speedwin", "t0": 13.3, "t1": 13.9, "cx": 222, "cy": 90},
+            {"kind": "impact", "t": 12.9, "x": 220, "y": 90, "invert": True, "word": "KRAKOOM"},
+            {"kind": "kiai", "t": 12.9, "x": 220, "y": 90},
+            {"kind": "speedwin", "t0": 12.4, "t1": 13.1, "cx": 160, "cy": 92},
+            {"kind": "speedwin", "t0": 13.3, "t1": 13.9, "cx": 216, "cy": 90},
         ],
         "dust_at": (13.7, 242),
     })
@@ -613,7 +639,9 @@ def _mood_for_line(who, text):
         return ("angry", "open", "grit", ("vein",))
     if "cheap shot" in t or "owes me" in t:
         return ("sad", "open", "grit", ("sweat", "blush"))
-    if any(k in t for k in ("KIDS", "WAKE THEM", "Show yourself", "My turn", "SANDWICH",
+    if "My turn" in t:
+        return ("angry", "open", "smirk", ())
+    if any(k in t for k in ("KIDS", "WAKE THEM", "Show yourself", "SANDWICH",
                             "wake them up", "Activate", "activating")):
         return ("whiteout", "shout", "grit", ())
     if who == "naya":
@@ -637,7 +665,7 @@ def _shot_plan(lwins):
         if t0 - prev_end >= 1.4 and prev_end > -5:
             plan.append((prev_end, t0, "breather", None))
         hot = any(k in (text or "") for k in ("KIDS", "WAKE THEM", "Show yourself",
-                                              "My turn", "SANDWICH", "ACTIVAT"))
+                                              "SANDWICH", "ACTIVAT"))
         shot = "low" if who == "kaba" else ("ecu" if hot else "mcu")
         plan.append((t0, t1, shot, who))
         prev_end = t1
@@ -666,6 +694,7 @@ class Renderer:
             lights = scene.get("lights_on_at") is not None and local_t >= scene["lights_on_at"] \
                      or getattr(env, "lights_on", False)
             img = env.frame(local_t, lights)
+            E.fireflies(img, local_t)
         else:
             img = env.frame(local_t)
         d = ImageDraw.Draw(img, "RGBA")
@@ -684,7 +713,7 @@ class Renderer:
             if pose == "mov":
                 pose = "walk1" if int(local_t * 6) % 2 == 0 else "walk2"
             # auto-blink (2.7-4.1s intervaller, seedat per namn)
-            eyes, bruise = act.face_at(local_t)
+            eyes, bruise, smouth = act.face_at(local_t)
             rng = random.Random(hash(name) & 0xffff)
             cyc = 2.4 + rng.random() * 1.9
             ph = rng.random() * cyc
@@ -695,6 +724,8 @@ class Renderer:
             fi = int(local_t * FPSS)
             if fi < act.mouth.size and act.mouth[fi]:
                 mouth = "open"
+            if smouth and mouth == "closed":      # regisserad vilomun (smirk/laugh etc.)
+                mouth = smouth
             # ---- DIREKTREAKTION: talarens ansikte byter mood i scenen ----
             addons = ()
             for (mw, t0m, t1m, meyes, mo_open, mo_closed, madd) in getattr(
@@ -712,7 +743,7 @@ class Renderer:
                 from PIL import ImageOps as _IO
                 ch_img = _IO.mirror(ch_img)
             bx = x - ch_img.width // 2
-            by = E.GROUND - (E.GROUND_CV if hasattr(E, "GROUND_CV") else ch_img.height) + act.y_off
+            by = E.GROUND - getattr(act.char, "ground_px", E.GROUND_CV) + act.y_off
             if act.drop and local_t < act.drop[0]:
                 p = max(0.0, local_t / act.drop[0])
                 by += int((1 - (p * p)) * act.drop[1])
