@@ -504,17 +504,45 @@ def main():
                 ops.append({"kind": "letterbox", "h": s["letterbox"]})
             small = E.apply_camera(small, lt, ops)
         img = small.resize((OUTW, OUTH), NEAREST)
-        # ---- CUT-IN närbild under replik (anime-reaktionsklipp) -------------
-        cutwho, cutwin = None, None
+        # ---- CUT-IN / FACE-OFF närbild under replik ------------------------
+        cutwho, cutwin, cuttext = None, None, None
+        prevwho = None
         if env_kind in ("dock", "dojo"):
+            prev_end = -9.0
             for who, text, t0, t1 in lwins_all[idx]:
                 if t0 <= lt <= t1 and who in cast and who not in ("narr", "hood"):
-                    cutwho, cutwin = who, (t0, t1)
+                    cutwho, cutwin, cuttext = who, (t0, t1), text
                     break
+                if who not in ("narr", "hood"):
+                    prev_end = t1
+            pairwho = None
+            lwl = lwins_all[idx]
+            for k2, (w2, tx2, ta2, tb2) in enumerate(lwl):
+                if not (ta2 <= lt <= tb2 and w2 == cutwho):
+                    continue
+                if k2 > 0:
+                    pw, _pt, _pa, pb = lwl[k2 - 1]
+                    if pw not in ("narr", "hood", cutwho) and lwl[k2][2] - pb <= 1.9:
+                        pairwho = pw
+                break
         if cutwho:
-            side = (lwins_all[idx][0][0] != cutwho)
-            img = E.cutin(img, cast[cutwho], lt - cutwin[0], side, cutwho,
-                          CHIP_COLS.get(cutwho, (150, 150, 150)))
+            MOOD = {"ren": "normal", "yuki": "normal", "mika": "normal", "kaba": "grit"}
+            ADD = {}
+            if cutwho == "kaba":
+                ADD = ("vein",)
+            if cuttext and ("cheap shot" in cuttext or "owes me" in cuttext):
+                ADD = ("sweat", "blush")
+            if pairwho and pairwho in cast:          # FACE-OFF-DUELL!
+                img = E.faceoff(img, cast[pairwho], cast[cutwho], "B",
+                                CHIP_COLS.get(pairwho, (150, 150, 150)),
+                                CHIP_COLS.get(cutwho, (150, 150, 150)),
+                                pairwho, cutwho, lt - cutwin[0])
+            else:
+                side = (lt > cutwin[0] + (cutwin[1] - cutwin[0]) / 2) if False else \
+                       (lwins_all[idx][0][0] != cutwho)
+                img = E.cutin(img, cast[cutwho], lt - cutwin[0], side, cutwho,
+                              CHIP_COLS.get(cutwho, (150, 150, 150)),
+                              mood=MOOD.get(cutwho, "normal"), addons=ADD)
         # ---- undertext EFTER kamera (aldrig croppad av zoom) ---------------
         if env_kind in ("dock", "dojo"):
             for who, text, t0, t1 in lwins_all[idx]:

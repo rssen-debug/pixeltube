@@ -442,3 +442,12 @@ Lösningen: AnimeChar (skelett-kapsel-rigg, 56x92 canvas, animeproportioner
 - Float→PIL without int() crashes randomly mid-render. Always wrap.
 - Deterministic seeds are the brand: never use time-based randomness in
   engine/story/audio. Test randomness belongs in test files only.
+
+## 9h) FACE ENGINE 2.0 + FACE-OFF-SPLIT (v3.1 — levererad i EP001)
+User-feedback på v3: "nästan" + One Piece-referensbild (jätteansikten, grit-tänder, svett/åder-ikoner, duell-split). Lösning:
+- **Ansiktsmotorn (v2engine.make_head_images)**: canvas 34×30, ögon = vit+yta+iris+glint+franslinje+underfrans-prick, state `whiteout` (tomma vita ögon + minimal pupill = raseri/skrik à la OPM/One Piece), mun `grit` (sammanbitna tänder med 3 separatorlinjer), tunga i open/shout, tjocka angry/sad-bryn, näs-linje+flare. Addons per frame: `"sweat"` (3 cyan-droppar), `"vein"` (pankors), `"blush"`, `"bruise"`. `full()` skalar huvudet 1.38×.
+- **cutin(img,char,t_since,side,name,chip_col,mood,addons)** — mood-map: normal=(angry,grin), grit=(angry,grit), rage=(whiteout,shout), hurt=(x,open).
+- **E.faceoff(img,charA,charB,active,chip_a,chip_b,name_a,name_b,t_since)** — referensbildens split: två 9×-byster glider in från motsatta kanter (0.14s ease-out), A alltid angry+grit, aktiv sida får whiteout+shout, fartlinje-fan i chip-färg BAKOM respektive byst (fläktcentrum = bystens centrum, annars svävar de fritt), gulvita blixt-zigzagen ritas OVANPÅ bysterna (annars döljer överlappande byster den), namn-skyltar i topp-hörnen.
+- **Trigger i v2make-renderloopen**: för aktuell replikrad kolla ENDAST omedelbart föregående rad: annan talare (ej narr/hood) + gap ≤ 1.9s → faceoff, annars cutin. Läxan från första försöket: loopa inte alla rader utan break — sista träffen vann och parade ihop fel moment ("SO WE WAKE THEM UP" fick Mika-motståndare).
+- **Känslokarta i v2make**: MOOD per karaktär (kaba=grit+vein, övriga normal), text-sentinel ("cheap shot"/"owes me" → sweat+blush). Vidare arbete: lägg mood/tags redan i beat-scriptet (--llm) istället för sträng-matchning.
+- Kaba drop −180 px kvar. Render: ~16s CPU, 79.8s/958 frames, 5.2MB. Verifierade moment: 38.5 kaba|ren faceoff, 50.2 ren|yuki faceoff, 71.5 ren cutin i letterboxad C-part.
