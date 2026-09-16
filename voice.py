@@ -17,7 +17,7 @@ import numpy as np
 
 SR = 44100
 BASE_FREQ = 380.0
-SPECIES_PITCH = { "tom": 0.78,        # trött man, mörkare yaw
+SPECIES_PITCH = { "tom": 0.78, "col": 1.05,        # trött man, mörkare yaw
     "dino": 0.95, "apa": 1.35, "kanin": 1.65, "mech": 0.55,   # mecha = djup robot
                    "ren": 0.85, "yuki": 0.62, "mika": 1.45, "kaba": 0.45, "narr": 0.72, "naya": 1.28}  # v2: människor + berättare
 

@@ -113,22 +113,23 @@ CHIP_COLS = {"ren": (245, 130, 40), "yuki": (200, 205, 225), "mika": (245, 130, 
              "kaba": (160, 70, 80), "narr": (140, 140, 160), "hood": (120, 120, 150),
              "naya": (130, 220, 230)}
 DISP = {"ren": "REN", "yuki": "YUKI", "mika": "MIKA", "kaba": "KABA",
+        "tom": "TOM", "col": "COL", "narr": "NARR",
         "narr": "", "hood": "???", "naya": "NAYA"}
 
 
 def draw_sub(pil_img, text, who=None):
     d = ImageDraw.Draw(pil_img, "RGBA")
-    t = E.ptext(text, scale=3, col=(255, 255, 255))
-    pad_x, pad_y = 18, 12
+    t = E.ptext(text, scale=5, col=(255, 255, 255))     # TIKTOK-STORA subs
+    pad_x, pad_y = 26, 18
     bw, bh = t.width + pad_x * 2 + 8, t.height + pad_y * 2
     x0 = (OUTW - bw) // 2
     y0 = OUTH - bh - 22
     d.rectangle([x0 + 4, y0 + 5, x0 + bw + 4, y0 + bh + 5], fill=(0, 0, 0, 110))
     d.rectangle([x0, y0, x0 + bw, y0 + bh], fill=(12, 12, 20, 200),
-                outline=(90, 90, 120, 220), width=2)
+                outline=(90, 90, 120, 220), width=3)
     x_text = x0 + pad_x
     if who and DISP.get(who):
-        chip = E.ptext(DISP[who], scale=2, col=(20, 20, 26))
+        chip = E.ptext(DISP[who], scale=3, col=(20, 20, 26))
         cw = chip.width + 16
         ch_col = CHIP_COLS.get(who, (150, 150, 150))
         d.rectangle([x0, y0 - chip.height - 10, x0 + cw + 10, y0 - 2], fill=ch_col + (255,))
@@ -742,7 +743,7 @@ class Renderer:
                 continue
             x, flip = act.track.at(local_t)
             if name in sep:
-                x += sep[name]
+                x = int(round(x + sep[name]))
             # BLICK: idle-åhörare vänder sig alltid mot talaren (inte in i väggen!)
             if gwho and name != gwho and gx is not None and pose in ("idle",):
                 flip = gx < x
@@ -819,12 +820,14 @@ class Renderer:
             elif k == "slash":
                 E.slash(img, fx["x"], fx["y"], fx["t"], local_t)
             elif k == "stamp" and fx["t0"] <= local_t <= fx["t1"]:
-                st = E.ptext(fx["text"], 2, fx.get("color", (246, 240, 200)))
+                st = E.ptext(fx["text"], fx.get("scale", 2), fx.get("color", (246, 240, 200)))
                 d.rectangle([fx["x"] - 4, fx["y"] - 3, fx["x"] + st.width + 6,
                              fx["y"] + st.height + 3], fill=(18, 20, 30, 190))
                 img.alpha_composite(st, (fx["x"], fx["y"]))
             elif k == "speedwin" and fx["t0"] <= local_t <= fx["t1"]:
                 E.speedlines(img, fx["cx"], fx["cy"])
+            elif k == "blood" and fx["t"] <= local_t:
+                E.blood(img, fx["x"], fx["y"], fx["t"], local_t)
         return img   # logisk 320x180 UBEN undertext (ritas efter kamera)
 
     def card_frame(self, card, local_t):
@@ -847,7 +850,13 @@ def build_cast95():
                       scale_x=0.99, scale_y=1.02,
                       suit=E.Suit((168, 152, 128), (52, 54, 64), (70, 58, 50), (250, 215, 180),
                                   arm_w=5, leg_t=0.95, tor_w=10, hips=7))
-    return {"tom": tom, "narr": base["hood"]}
+    col = E.AnimeChar("col", {"H": (60, 60, 70), "S": (240, 205, 175), "T": (60, 90, 150),
+                              "P": (44, 46, 56), "B": (66, 54, 44), "K": (24, 22, 28)},
+                      hair="hawk", iris=(90, 120, 90), voice_pitch="col", eyes_kind="default",
+                      scale_x=1.0, scale_y=1.0,
+                      suit=E.Suit((60, 90, 150), (44, 46, 56), (66, 54, 44), (240, 205, 175),
+                                  arm_w=6, tor_w=12, hips=8))
+    return {"tom": tom, "col": col, "narr": base["hood"]}
 
 
 def episode_905(cast):
@@ -921,17 +930,24 @@ def episode_905(cast):
         "actors": {
             "tom": {"track": [(0, 204, False), (9.4, 206, False)],
                     "blocks": [(0, 9.4, "idle")],
-                    "faces": [(1.4, "normal", False), (5.6, "sad", False)]},
+                    "faces": [(1.4, "normal", False), (5.8, "wide", False),
+                              (6.6, "sad", False)]},
+            "col": {"track": [(5.6, -34, False), (7.8, 250, False), (9.4, 292, False)],
+                    "blocks": [(0, 5.6, "none"), (5.6, 9.4, "mov")],
+                    "faces": [(6.0, "happy", False)]},
         },
         "fx": [{"kind": "stamp", "t0": 0.4, "t1": 3.0, "text": "DAY 9 413", "x": 20, "y": 22}],
         "lines": [(0.8, "narr", "Day 9 413. His job: move numbers from left to right."),
-                  (5.2, "tom", "If the numbers ever arrive anywhere... it is at home.")],
+                  (5.6, "col", "Hey Tom!"),
+                  (6.4, "tom", "..."),
+                  (7.6, "narr", "The hello arrived one desk too late.")],
         "audio": []})
     # 7) GATAN + BUSSEN (hit!)
     sc.append({
         "env": ("street", {"hit_t": 6.2}), "dur": 10.0, "letterbox": 13, "fadeout": 0.55,
         "mood": "menace",
-        "cam": [{"kind": "pan", "x": lambda t: 140 - t * 4.6}],
+        "cam": [{"kind": "pan", "x": lambda t: 140 - t * 4.6},
+                {"kind": "shake", "t0": 6.2, "t1": 6.8, "amp": 5}],
         "actors": {
             "tom": {"track": [(0, 148, True), (2.0, 66, True), (4.6, 66, True),
                               (5.2, 76, False), (6.0, 94, False), (6.15, 96, False),
@@ -943,7 +959,10 @@ def episode_905(cast):
         },
         "lines": [(0.8, "narr", "The 42 never honked before. It knew him by heart."),
                   (3.4, "tom", "Green again. Story of my li-")],
-        "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True}],
+        "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True},
+               {"kind": "blood", "t": 6.22, "x": 96, "y": 140},
+               {"kind": "stamp", "t0": 4.85, "t1": 6.18, "text": "!!", "scale": 4,
+                "x": 88, "y": 44, "color": (235, 60, 50)}],
         "audio": [(4.9, "horn", 1.0), (5.6, "rumble", 0.9), (6.2, "boom", 1.0)]})
     # 8) VOID: reboot
     sc.append({

@@ -1243,6 +1243,37 @@ def aura(img, x, y_base, hgt, t, hue="violet"):
         d.point((x + rng.randrange(-9, 9), yy), fill=(255, 255, 255, 210))
 
 
+
+
+def blood(img, x, y, t0, t):
+    """Stiliserad anime-blodskvätt: radiala partiklar + kvarvarande fläck på marken.
+    t0..t0+0.38: explosion; därefter bestående spill + pool under fallets plats."""
+    d = ImageDraw.Draw(img, "RGBA")
+    dark = (128, 16, 22, 230)
+    mid = (186, 24, 30, 220)
+    hot = (224, 52, 44, 200)
+    dt = t - t0
+    if dt < 0:
+        return
+    p = min(1.0, dt / 0.38)
+    rng = random.Random(9)
+    # partiklar utåt (buss: flest uppåt-åt-skadad sida)
+    for i in range(30):
+        ang = -math.pi * 0.85 + (i / 29) * math.pi * 1.2
+        dist = (14 + rng.random() * 30) * (0.25 + p * 0.97)
+        xx = x + int(math.cos(ang) * dist)
+        yy = y - int(abs(math.sin(ang)) * dist * 0.8)
+        col = hot if i % 3 == 0 else (mid if i % 2 == 0 else dark)
+        sz = 1 + (1 if (i + int(dt * 20)) % 5 == 0 else 0)
+        d.rectangle([xx, yy, xx + sz, yy + sz], fill=col)
+    # stänk på bussjем/ytan (persistens efter 0.15s)
+    if dt > 0.15:
+        for k in range(9):
+            xo = x - 12 + (k * 7) % 20
+            yo = y - 6 - (k * 11) % 22
+            d.rectangle([xo, yo, xo + 2, yo + 2], fill=dark)
+        d.ellipse([x - 3, y + 1, x + 16, y + 7], fill=(118, 14, 18, 200))   # pool börjar
+
 def dust(img, x, y, n=7):
     d = ImageDraw.Draw(img, "RGBA")
     for i in range(n):

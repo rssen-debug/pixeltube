@@ -578,3 +578,14 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
 - PreviewCard "no" är INT (f"{no:03d}").
 - Render: ~35s, 4.0 MB, 1080p/24. Fil: out/nine-five-ep001.mp4.
 - KARRAKTÄREN Tom: beige hoodie m, brun lång frisyr, eyes "soft", iris bärnsten, slap-time 1.02.
+
+## 10a) 9-5 P2: TikTok-pass + blod + kollega (user review av pilot)
+- Subs: E.ptext scale 5 + pad 26/18 + outline 3 (TikTok-storlek), chip scale 3 -(färgad namntagg).
+  LÅS: en text-rad ~12-14 tecken/pixelbredd i 5x overfyller inte 320-rutan (verifierat 44a tecken OK).
+- STYLTSLERAD BLOD (16+ cartoon): E.blood (radial 30-partiklar, persistera 0.15s->fläckar+pool),
+  fx-kind "blood" i scene-frames (t/x/y). + KAMERA SHAKE vid träff (kind shake t0/t1/amp).
+  + röd "!!"-alert (stamp scale 4) vid horn 1s före träff = förvarning/blinkmekanik.
+- Kollega "col" passerar: cast-tillägg + track mov bakum/framfövr + line+gaze => ensamhetsgag
+  ("hello arrived one desk too late"). Röst "col": 1.05 i SPECIES_PITCH. DISP: tom/col/narr.
+- BUGG: sep-separation returnerar float -> x = int(round(...)) (alpha_composite kräver int).
+- Render: ~32s @1080p, 4.2 MB.
