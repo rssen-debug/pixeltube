@@ -28,7 +28,9 @@ import v2engine as E
 NEAREST = E.NEAREST
 
 FPSS = 12
-SCALE = 6                      # research: exakt 6x NEAREST -> 1080p                       # 320x180 -> 1280x720
+SCALE = 6                      # research: exakt 6x NEAREST -> 1080p
+VERT = False                   # 9:16-läge (default av)
+VERT_STAMPS_OUT = False        # VERT: stamps ritas på output-koordinater                       # 320x180 -> 1280x720
 OUTW, OUTH = E.W * SCALE, E.H * SCALE
 
 SERIES = "VOLT BREAKER"
@@ -119,7 +121,8 @@ DISP = {"ren": "REN", "yuki": "YUKI", "mika": "MIKA", "kaba": "KABA",
 
 def draw_sub(pil_img, text, who=None):
     d = ImageDraw.Draw(pil_img, "RGBA")
-    t = E.ptext(text, scale=5, col=(255, 255, 255))     # TIKTOK-STORA subs
+    _sub_sc = 3 if OUTH > OUTW else 5                # vertikal = smalare
+    t = E.ptext(text, scale=_sub_sc, col=(255, 255, 255))     # TIKTOK-STORA subs
     pad_x, pad_y = 26, 18
     bw, bh = t.width + pad_x * 2 + 8, t.height + pad_y * 2
     x0 = (OUTW - bw) // 2
@@ -129,7 +132,7 @@ def draw_sub(pil_img, text, who=None):
                 outline=(90, 90, 120, 220), width=3)
     x_text = x0 + pad_x
     if who and DISP.get(who):
-        chip = E.ptext(DISP[who], scale=3, col=(20, 20, 26))
+        chip = E.ptext(DISP[who], scale=(2 if OUTH > OUTW else 3), col=(20, 20, 26))
         cw = chip.width + 16
         ch_col = CHIP_COLS.get(who, (150, 150, 150))
         d.rectangle([x0, y0 - chip.height - 10, x0 + cw + 10, y0 - 2], fill=ch_col + (255,))
@@ -819,7 +822,7 @@ class Renderer:
                 E.kiai(img, fx["x"], fx["y"])
             elif k == "slash":
                 E.slash(img, fx["x"], fx["y"], fx["t"], local_t)
-            elif k == "stamp" and fx["t0"] <= local_t <= fx["t1"]:
+            elif k == "stamp" and fx["t0"] <= local_t <= fx["t1"] and not VERT_STAMPS_OUT:
                 st = E.ptext(fx["text"], fx.get("scale", 2), fx.get("color", (246, 240, 200)))
                 d.rectangle([fx["x"] - 4, fx["y"] - 3, fx["x"] + st.width + 6,
                              fx["y"] + st.height + 3], fill=(18, 20, 30, 190))
@@ -936,7 +939,7 @@ def episode_905(cast):
                     "blocks": [(0, 5.6, "none"), (5.6, 9.4, "mov")],
                     "faces": [(6.0, "happy", False)]},
         },
-        "fx": [{"kind": "stamp", "t0": 0.4, "t1": 3.0, "text": "DAY 9 413", "x": 20, "y": 22}],
+        "fx": [],
         "lines": [(0.8, "narr", "Day 9 413. His job: move numbers from left to right."),
                   (5.6, "col", "Hey Tom!"),
                   (6.4, "tom", "..."),
@@ -988,17 +991,138 @@ def episode_905(cast):
     return sc
 
 
+
+
+def episode_905v(cast):
+    sc = []
+    sc.append({
+        "env": ("street", {"hit_t": None}), "dur": 7.0, "letterbox": 0, "fadein": 0.25,
+        "mood": "ominous",
+        "cam": [{"kind": "pan", "x": lambda t: 190 - t * 12.0}],
+        "actors": {
+            "tom": {"track": [(0, 232, True), (2.6, 148, True), (7.0, 104, True)],
+                    "blocks": [(0, 7.0, "mov")], "faces": [(1.6, "sad", True)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.05, "t1": 2.4, "text": "DAY 9 413", "scale": 6,
+                "x": 60, "y": 120, "color": (255, 120, 100)}],
+        "lines": [(0.6, "tom", "The rain did not ask permission."),
+                  (3.5, "narr", "Day 9 413. Something was about to splice the loop.")],
+        "audio": [(0.2, "boom", 0.35), (6.2, "horn", 0.28)]})
+    sc.append({
+        "env": ("apartment", {}), "dur": 7.6, "mood": "cozy",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.02, "focus": (96, 96)}],
+        "actors": {
+            "tom": {"track": [(0, 34, False), (2.0, 34, False), (4.6, 96, False), (7.6, 100, False)],
+                    "blocks": [(0, 2.0, "idle"), (2.0, 4.6, "walk1"), (4.6, 7.6, "idle")],
+                    "faces": [(0.4, "sad", False), (5.8, "normal", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "DAY", "scale": 7, "x": 60, "y": 110},
+               {"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "1", "scale": 7, "x": 60, "y": 260}],
+        "lines": [(1.0, "tom", "Day 1. The alarm chose violence."),
+                  (5.2, "tom", "Shower is a threat, not a place.")],
+        "audio": [(0.05, "alarm", 0.9), (0.5, "alarm", 0.7), (1.1, "thud", 0.6)]})
+    sc.append({
+        "env": ("apartment", {}), "dur": 3.6, "mood": "cozy",
+        "actors": {
+            "tom": {"track": [(0, 34, False), (1.5, 96, False), (3.6, 96, False)],
+                    "blocks": [(0, 0.6, "idle"), (0.6, 1.5, "walk1"), (1.5, 3.6, "idle")],
+                    "faces": [(0.2, "sad", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "DAY", "scale": 7, "x": 60, "y": 110},
+               {"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "9 412", "scale": 6, "x": 60, "y": 270}],
+        "lines": [(1.0, "narr", "Day 9 412. His reflection blinked first.")],
+        "audio": [(0.05, "alarm", 0.6)]})
+    sc.append({
+        "env": ("platform", {"train_t": 2.8}), "dur": 7.6, "mood": "ominous",
+        "cam": [{"kind": "pan", "x": lambda t: 148 + t * 2.4}],
+        "actors": {
+            "tom": {"track": [(0, 168, False), (7.6, 168, False)],
+                    "blocks": [(0, 7.6, "idle")],
+                    "faces": [(0.4, "sad", False), (5.6, "normal", False)]},
+        },
+        "lines": [(0.4, "narr", "Same train. Same seat. Same song."),
+                  (5.4, "tom", "I move numbers. Nobody knows where to.")],
+        "audio": [(2.7, "rumble", 0.95), (4.9, "whoosh", 0.7)]})
+    sc.append({
+        "env": ("office", {}), "dur": 8.6, "mood": "mystery",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.014, "focus": (200, 96)}],
+        "actors": {
+            "tom": {"track": [(0, 204, False), (8.6, 206, False)],
+                    "blocks": [(0, 8.6, "idle")],
+                    "faces": [(1.0, "normal", False), (5.4, "wide", False),
+                              (6.2, "sad", False)]},
+            "col": {"track": [(5.2, -34, False), (6.1, 182, False), (8.6, 192, False)],
+                    "blocks": [(0, 5.2, "none"), (5.2, 6.1, "mov"), (6.1, 8.6, "idle")],
+                    "faces": [(5.8, "happy", False)]},
+        },
+        "lines": [(0.5, "narr", "Day 9 413. Numbers, left to right."),
+                  (5.2, "col", "Hey Tom!"),
+                  (6.0, "tom", "..."),
+                  (7.0, "narr", "The hello arrived one desk too late.")],
+        "audio": []})
+    sc.append({
+        "env": ("street", {"hit_t": 6.2}), "dur": 9.2, "letterbox": 0, "fadeout": 0.5,
+        "mood": "menace",
+        "cam": [{"kind": "pan", "x": lambda t: 140 - t * 4.2},
+                {"kind": "shake", "t0": 6.2, "t1": 6.8, "amp": 5}],
+        "actors": {
+            "tom": {"track": [(0, 148, True), (2.0, 66, True), (4.4, 66, True),
+                              (5.0, 76, False), (5.9, 94, False), (6.05, 96, False),
+                              (6.9, 96, False), (10, 96, False)],
+                    "blocks": [(0, 2.0, "mov"), (2.0, 4.4, "idle"), (4.6, 5.5, "walk1"),
+                               (6.2, 6.5, "hurt"), (6.5, 10, "fall")],
+                    "faces": [(0.4, "normal", True), (2.2, "sad", True),
+                              (5.0, "wide", False), (6.2, "whiteout", False)]},
+        },
+        "lines": [(0.6, "narr", "The 42 never honked before."),
+                  (3.3, "tom", "Green again. Story of my li-")],
+        "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True},
+               {"kind": "blood", "t": 6.22, "x": 96, "y": 140},
+               {"kind": "stamp", "t0": 4.85, "t1": 6.18, "text": "!!", "scale": 14,
+                "x": 400, "y": 520, "color": (235, 60, 50)}],
+        "audio": [(4.9, "horn", 1.0), (5.6, "rumble", 0.9), (6.2, "boom", 1.0)]})
+    sc.append({
+        "env": ("void", {}), "dur": 8.4, "fadein": 0.8, "mood": "mystery",
+        "actors": {
+            "tom": {"track": [(0, 160, False), (8.4, 160, False)],
+                    "blocks": [(0, 8.4, "idle")],
+                    "faces": [(0.3, "wide", False), (2.6, "spark", False),
+                              (5.2, "normal", False)]},
+        },
+        "lines": [(0.9, "narr", "Then: nothing. And then: this clean, white room."),
+                  (4.0, "tom", "...this is not the 42."),
+                  (6.2, "narr", "CONTINUE?")],
+        "fx": [{"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "PLAYER 2", "scale": 5,
+                "x": 230, "y": 180, "color": (140, 170, 220)},
+               {"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "READY", "scale": 5,
+                "x": 330, "y": 290, "color": (140, 170, 220)}],
+        "audio": [(0.2, "sparkle", 0.5), (6.2, "sparkle", 0.6)]})
+    sc.append({"env": ("vcard", {"big": "LEVEL 0", "subtitle": "CONTINUE?",
+                                  "lines": ["Y / N", "save him?", "bus-kun waits..."],
+                                  "tone": (26, 34, 62)}),
+               "dur": 1.8, "fadein": 0.25, "mood": "sting"})
+    return sc
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ep", type=int, default=1)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--vertical", action="store_true")
     args = ap.parse_args()
 
-    cast = build_cast95() if args.ep == 905 else build_cast()
+    if getattr(args, "vertical", False):
+        globals()["VERT"] = True
+        globals()["VERT_STAMPS_OUT"] = True
+        globals()["OUTW"], globals()["OUTH"] = 1080, 1920
+    cast = build_cast95() if args.ep in (905,) else build_cast()
     if args.ep == 905:
         globals()["SERIES"] = "9-5"
         globals()["CAST95"] = True
-    ep_fn = {1: episode_001, 2: episode_002, 3: episode_003, 905: episode_905}.get(args.ep, episode_001)
+    if args.ep == 905 and getattr(args, "vertical", False):
+        ep_fn = episode_905v
+    else:
+        ep_fn = {1: episode_001, 2: episode_002, 3: episode_003, 905: episode_905}.get(args.ep, episode_001)
     scenes = ep_fn(cast)
 
     # ---------------- LJUD: röster + envelope-läppar ----------------------
@@ -1088,6 +1212,8 @@ def main():
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     if args.out:
         out = args.out
+    elif args.ep == 905 and getattr(args, "vertical", False):
+        out = "/home/user/pixeltube/out/nine-five-ep001-vertical.mp4"
     elif args.ep == 905:
         out = "/home/user/pixeltube/out/nine-five-ep001.mp4"
     else:
@@ -1137,6 +1263,8 @@ def main():
                                                         catchword=("THUNDER SEASON 1" if who == "ren"
                                                                    else "static grins back"),
                                                         seed=301, dark=(who != "ren"))
+            elif env_kind == "vcard":
+                Renderer._envcache[ck] = E.VertCard(**env_args, seed=301 + idx)
             elif env_kind == "apartment":
                 Renderer._envcache[ck] = E.ApartmentMorning(seed=301 + idx)
             elif env_kind == "platform":
@@ -1206,9 +1334,32 @@ def main():
             ops.append({"kind": "letterbox", "h": s["letterbox"]})
         if ops:
             small = E.apply_camera(small, lt, ops)
+        if VERT and small.width > 90:
+            # 9:16-crop: 90x160 logiskt fönster som följer huvudpersonen
+            fx_anchor = 160
+            try:
+                for a_nm in ("tom", "ren"):
+                    if a_nm in actors:
+                        fx_anchor = int(actors[a_nm].track.at(lt)[0])
+                        break
+            except Exception:
+                fx_anchor = 160
+            cx0 = max(0, min(E.W - 90, fx_anchor - 45))
+            small = small.crop((cx0, 20, cx0 + 90, 180))
         img = small.resize((OUTW, OUTH), NEAREST)
         if flash:
             img.alpha_composite(Image.new("RGBA", img.size, (255, 255, 255, 195)))
+        # ---- VERT: stamp-fx ritas direkt på OUTPUT-px (TikTok-text-lyft) ----
+        if VERT_STAMPS_OUT:
+            d_tmp = ImageDraw.Draw(img, "RGBA")
+            for fx2 in s.get("fx", []):
+                if fx2.get("kind") == "stamp" and fx2["t0"] <= lt <= fx2["t1"]                         and fx2.get("x", 0) >= 0:
+                    st2 = E.ptext(fx2["text"], fx2.get("scale", 2),
+                                  fx2.get("color", (246, 240, 200)))
+                    d_tmp.rectangle([fx2["x"] - 14, fx2["y"] - 12,
+                                     fx2["x"] + st2.width + 16, fx2["y"] + st2.height + 12],
+                                    fill=(14, 16, 26, 175))
+                    img.alpha_composite(st2, (fx2["x"], fx2["y"]))
         # ---- undertext EFTER kamera (aldrig croppad av zoom) ---------------
         if env_kind in ("dock", "dojo", "apartment", "platform", "office", "street", "void"):
             for who, text, t0, t1 in lwins_all[idx]:

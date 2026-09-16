@@ -589,3 +589,19 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
   ("hello arrived one desk too late"). Röst "col": 1.05 i SPECIES_PITCH. DISP: tom/col/narr.
 - BUGG: sep-separation returnerar float -> x = int(round(...)) (alpha_composite kräver int).
 - Render: ~32s @1080p, 4.2 MB.
+
+## 10b) 9:16 VERTIKAL SHORT (TikTok/Shorts) --ep 905 --vertical
+- VIRAL RECEPT (research 2026): hook caption I frame 1 (65% av de som ser 3s ser 10+),
+  mid-action start (ingen titelcard!), captions på alla ord (85% scrollar på mute),
+  pattern-interrupt var 3-4s (juc nu-ar stamps, zoom, shakelen, "!!"), 20-60s-length (vår: ~53s),
+  LOOP (slutkort -> "CONTINUE? Y/N" binder tillbaka till start-feel).
+- VERT-LÄGE: crop 90x160 logiskt (exakt 9:16) x12 = 1080x1920; crop-fönstret följer "tom" (eller ren)
+  via actors track. Korttypes (vcard) är redan 90x160 -> hoppa crop via width-check.
+- TEXT-LYFT: STAMP-fx ritas OM i VERT-läge direkt på OUTPUT-pixlar (1080x1920) genom att
+  scene_frame hoppades (VERT_STAMPS_OUT=True) och re-pass körs i pipe-loopen före subs.
+  => dax/y = OUTPUT-koordinater i vertikala episoder! World-stamps funkar inte i crop (skär av).
+- VERT: subs scale 3 (annars >1080 bred), chip scale 2.
+- E.VertCard(big, subtitle, lines, tone) 90x160 + RGBA-viktigt (alpha_composite-krav).
+- LÄXA: karaktärer som ansluter till huvudmannen i VERT måste åka IN i 90px-fönstret runt honom
+  (col-track: -34->182, annars passerar han bakom crop-kanten utan att synas!).
+- Fil mer: out/nine-five-ep001-vertical.mp4 (~24s render, 2.5 MB).

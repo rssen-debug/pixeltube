@@ -748,6 +748,36 @@ class EyecatchCard(Card):
         return img
 
 
+
+
+class VertCard:
+    """Litet vertikalt kort (90x160 logiskt): BIG + sub + small-lines."""
+
+    def __init__(self, big, subtitle="", lines=(), tone=(14, 18, 34), seed=0):
+        self.big = big; self.subtitle = subtitle; self.lines = lines
+        self.tone = tone; self.rng = random.Random(seed)
+
+    def frame(self, t):
+        img = Image.new("RGBA", (90, 160), self.tone + (255,))
+        d = ImageDraw.Draw(img, "RGBA")
+        for i in range(12):
+            rng2 = random.Random(i * 13)
+            x = rng2.randrange(90); sp = 2 + i % 4
+            y = (rng2.randrange(160) + t * sp) % 160
+            d.point((x, y), fill=(70, 90, 120, 140))
+        hb = ptext_fit(self.big, col=(140, 220, 255), scales=(4, 3, 2), maxw=82)
+        img.alpha_composite(hb, ((90 - hb.width) // 2, 34 + int(-6 * min(1.0, t / 0.4))))
+        if self.subtitle:
+            hs = ptext_fit(self.subtitle, col=(236, 200, 110), scales=(2, 1), maxw=82)
+            img.alpha_composite(hs, ((90 - hs.width) // 2, 34 + hb.height + 12))
+        y = 34 + hb.height + 40
+        for ln in self.lines:
+            hl = ptext_fit(ln, col=(200, 204, 214), scales=(1,), maxw=82)
+            img.alpha_composite(hl, ((90 - hl.width) // 2, y))
+            y += hl.height + 4
+        return img
+
+
 class PreviewCard(Card):
     def __init__(self, episode_no, title, lines, seed=0):
         super().__init__((4, 6, 14), seed)
