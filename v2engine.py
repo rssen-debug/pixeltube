@@ -1126,6 +1126,21 @@ def _dk(c, f=0.62):
 
 def draw_body(img, suit, j, scale=1.0):
     """Ritar kapsel-kroppen i en 56x92-canvas. Bakre->främre."""
+    # v6: SILHUETT-förändring av ledena själva (ingen overlay-linje = rena former)
+    jm = dict(j)
+    if suit.bust >= 1:                      # TIMGLAS: höfter/lår ut, axlar in
+        for k in ("hipL", "hipR"):
+            xx, yy = jm[k]; jm[k] = (xx - 3 if k.endswith("L") else xx + 3, yy)
+        for k in ("kneeL", "kneeR"):
+            xx, yy = jm[k]; jm[k] = (xx - 2 if k.endswith("L") else xx + 2, yy)
+        for k in ("shoulderL", "shoulderR"):
+            xx, yy = jm[k]; jm[k] = (xx + 2 if k.endswith("L") else xx - 2, yy)
+    elif suit.arm_w >= 6:                   # V-SILHUETT: smala höfter, breda axlar
+        for k in ("shoulderL", "shoulderR"):
+            xx, yy = jm[k]; jm[k] = (xx - 2 if k.endswith("L") else xx + 2, yy)
+        for k in ("hipL", "hipR"):
+            xx, yy = jm[k]; jm[k] = (xx + 1 if k.endswith("L") else xx - 1, yy)
+    j = jm
     d = ImageDraw.Draw(img)
     ox, oy = BODY_CV_W // 2, GROUND_CV
 
@@ -1156,17 +1171,23 @@ def draw_body(img, suit, j, scale=1.0):
     _cap(d, hipL, hipR, suit.jacket, int(max(4, suit.tor_w - 2) * scale), out)
     _cap(d, shL, shR, suit.jacket, int(max(4, suit.tor_w - 3) * scale), out)
     _cap(d, P("pelvis"), P("neck"), suit.jacket, int(suit.tor_w * scale), out)
-    # BYST-kurvor (valfritt, nivå 1-2)
+    # BYST-kurvor (valfritt, nivå 1-2): större/rundare lobes + klyft + toppglans
     if suit.bust >= 1:
         cx0 = (shL[0] + shR[0]) // 2
-        cy0 = shL[1] + 6
-        rr = 2 + suit.bust
-        for bx0 in (cx0 - 3, cx0 + 3):
+        cy0 = shL[1] + 7
+        rr = 3 + suit.bust
+        for bx0 in (cx0 - 4, cx0 + 4):
             d.ellipse([bx0 - rr, cy0 - rr, bx0 + rr, cy0 + rr - 1],
                       fill=suit.jacket, outline=out)
-        d.line([(cx0, cy0 - rr + 1), (cx0, cy0 + 1)], fill=_dk(suit.jacket, 0.62))
-        d.line([(cx0 - rr - 2, cy0 - 1), (cx0 - rr, cy0 - rr)],
-               fill=tuple(min(255, int(v * 1.25)) for v in suit.jacket[:3]))
+            d.point((bx0 - rr // 2, cy0 - rr + 1),
+                    fill=tuple(min(255, int(v * 1.35)) for v in suit.jacket[:3]))
+        d.line([(cx0, cy0 - rr + 2), (cx0, cy0 + 1)], fill=_dk(suit.jacket, 0.58))
+    # PEC-linje for stora killarna (2 subtila skaror under kragen)
+    if suit.arm_w >= 6 and suit.bust == 0:
+        pcx = (shL[0] + shR[0]) // 2
+        pc0 = shL[1] + 7
+        for pxx in (pcx - 3, pcx + 2):
+            d.line([(pxx, pc0), (pxx + 2, pc0)], fill=_dk(suit.jacket, 0.66))
     # AXELPADS (valfritt, skurk-rymbd)
     if suit.pads:
         for shx in (shL[0], shR[0]):
@@ -1203,35 +1224,7 @@ def draw_body(img, suit, j, scale=1.0):
         hx, hy = hd
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], fill=suit.skin)
         d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], outline=out)
-    # ---------------- v5.1: SEXIGARE KROPPAR (silhuett-shading) ----------------
-    ll = _lt(suit.jacket, 1.5)
-    pv3 = P("pelvis")
-    # 1) midje: mjuka höftkurvor istf korv: 1px mörkare notch på sidorna i "klyften"
-    d.point((pv3[0] - max(4, suit.tor_w // 2) - 1, pv3[1] - 4), fill=_dk(suit.jacket, 0.7))
-    d.point((pv3[0] - max(4, suit.tor_w // 2), pv3[1] - 5), fill=_dk(suit.jacket, 0.75))
-    d.point((pv3[0] + max(4, suit.tor_w // 2) + 1, pv3[1] - 4), fill=_dk(suit.jacket, 0.78))
-    # 2) rim-light: vänster torssida + yttre fram-ben (anime edge-light)
-    t1 = max(1, int(scale))
-    d.line([(pv3[0] - max(4, suit.tor_w // 2) - 2, pv3[1] - 2),
-            (shL[0] - 3, shL[1] + 2)], fill=ll, width=t1)
-    d.line([(shL[0] - 2, shL[1] + 1), (shL[0] - 2, shL[1] - 3)], fill=ll, width=t1)
-    d.line([(ftR[0] + 3, ftR[1] - 7), (hipR[0] + 4, hipR[1] - 2)], fill=ll, width=t1)
-    # 3) KURVOR: höft-glans + byst under-skugga (tjejerna)
-    if suit.bust >= 1:
-        d.point((pv3[0] - suit.hips + 1, pv3[1] - 2), fill=ll)
-        d.point((pv3[0] - suit.hips + 2, pv3[1] - 1), fill=ll)
-        cx_b = (shL[0] + shR[0]) // 2
-        cy_b = shL[1] + 6 + (2 + suit.bust) - 1
-        for bx2 in (cx_b - 3, cx_b + 3):
-            d.arc([bx2 - (2 + suit.bust), cy_b - 2, bx2 + (2 + suit.bust), cy_b + 2],
-                  10, 170, fill=_dk(suit.jacket, 0.58), width=1)
-    # 4) MUSKELBRYST: pec-linje + axel-glans för stora killarna
-    if suit.arm_w >= 6:
-        cx_b = (shL[0] + shR[0]) // 2
-        d.arc([cx_b - 4, shL[1] + 3, cx_b + 4, shL[1] + 9], 15, 165,
-              fill=_dk(suit.jacket, 0.62), width=1)
-        d.point((shL[0] - 1, shL[1] - 1), fill=ll)
-        d.point((shR[0] + 1, shR[1] - 1), fill=ll)
+
 
 
 # ---------------------------------------------------------------------------

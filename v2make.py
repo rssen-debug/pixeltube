@@ -709,6 +709,17 @@ class Renderer:
             dt, dx = scene["dust_at"]
             if dt <= local_t <= dt + 0.8:
                 E.dust(img, dx, 140)
+        # AURA-FLAMMOR först (energi hör BAKOM karaktären, inte snack över den)
+        for fx in scene.get("fx", []):
+            if fx["kind"] == "aura" and fx["t0"] <= local_t <= fx["t1"]:
+                ax = actors[fx["x_track"]].track.at(local_t)[0] if fx.get("x_track") else fx["x"]
+                E.aura(img, ax, E.GROUND, 96, local_t, fx.get("hue", "violet"))
+        # BLICK: vem talar, var står denne?
+        gwho, gx = None, None
+        for lm in getattr(self, "line_moods", ()):
+            mw, t0m, t1m = lm[0], lm[1], lm[2]
+            if t0m <= local_t <= t1m and mw in actors:
+                gwho = mw; gx = actors[mw].track.at(local_t)[0]; break
         # aktörer
         order = sorted(actors.items(), key=lambda kv: kv[1].track.at(local_t)[0])
         for name, act in order:
@@ -716,6 +727,9 @@ class Renderer:
             if pose == "none":
                 continue
             x, flip = act.track.at(local_t)
+            # BLICK: idle-åhörare vänder sig alltid mot talaren (inte in i väggen!)
+            if gwho and name != gwho and gx is not None and pose in ("idle",):
+                flip = gx < x
             if pose == "mov":
                 pose = "walk1" if int(local_t * 6) % 2 == 0 else "walk2"
             # auto-blink (2.7-4.1s intervaller, seedat per namn)
@@ -788,10 +802,6 @@ class Renderer:
                 E.kiai(img, fx["x"], fx["y"])
             elif k == "slash":
                 E.slash(img, fx["x"], fx["y"], fx["t"], local_t)
-            elif k == "aura" and fx["t0"] <= local_t <= fx["t1"]:
-                ax = actors[fx["x_track"]].track.at(local_t)[0] if fx.get("x_track") else fx["x"]
-                E.aura(img, ax, E.GROUND, 96, local_t, fx.get("hue", "violet"))
-                # rit energi OM igen efter aktörer -> vi kompositörer aura under/över
             elif k == "speedwin" and fx["t0"] <= local_t <= fx["t1"]:
                 E.speedlines(img, fx["cx"], fx["cy"])
         return img   # logisk 320x180 UBEN undertext (ritas efter kamera)

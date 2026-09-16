@@ -548,3 +548,17 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
 - Keep it tasteful 16+: kurvor/muskler via cel-shading, inget explicit, ingen naken hud.
 - NOTE övning: kropp-probe utan huvud ser konstigare ut än verkligheten — verifiera alltid
   i scenen (hel + ljus) innan man accepterar förändringar.
+
+## 9q) v6 QUALITY-REPAIR (user-screenshots: konstiga linjer, täckta karaktärer, ingen blick)
+- REGEL: kön/form läses av SILHUETT (höfter-vs-axlar kontrastration), INTE overlay-linjer.
+  v5.1 rim-light/notch-linjer BACKADE hela vägen — i pixel-skala läsåthey som smuts.
+- GEOMETRISK silhuett i draw_body: j-kopia ändras: bust>=1 -> hipL/R +/-3, knee +/-2, axlar IN 2
+  (timglas); arm_w>=6 -> axlar UT 2, höfter IN 1 (V-rygg). BYST stor: rr=3+bust, lobes +/-4,
+  klyft-linje + toppglans-punkt. RUMPA: hip-ellipse radie används av suit.hips (girls hips 8-10).
+  PEC: 2 subtila 1px-skaror under kragen för arm_m>=6. Aldrig arcs igen (såg konstigt ut).
+- FX-LAGER: aura-flammor ritas FÖRE aktörer (energi bakom karaktären), aldrig efter.
+  Tidigare: fx-loop i slutet => flammor täckte människor (user-screenshot).
+- BLICK: line_moods ger talaren; alla pose=="idle" flippas mot talaren i scene_frame.
+  (verifierat: tillwyn trio vänder huvud mot mika när hon talar.)
+- Research: 180-regel + "en som rör i taget" i fights; hyperpad sprite-anatomi;
+  skyrye m/f-proportioner (axel/höft-kontrast = gendercept.
