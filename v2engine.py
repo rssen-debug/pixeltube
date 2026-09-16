@@ -33,7 +33,11 @@ def ptext_fit(line, col=(255, 255, 255), scales=(5, 4, 3, 2, 1), maxw=W - 20):
         im = ptext(line, s, col)
         if im.width <= maxw:
             return im
-    return ptext(line, 1, col)
+    im = ptext(line, 1, col)
+    if im.width > maxw:                     # hård-golvet: krymp till maxw (annars klipps texten)
+        h2 = max(4, int(im.height * maxw / im.width))
+        im = im.resize((maxw, h2), NEAREST)
+    return im
 
 
 def ptext_center(big, line, y, scale=3, col=(255, 255, 255)):
@@ -758,23 +762,28 @@ class VertCard:
         self.tone = tone; self.rng = random.Random(seed)
 
     def frame(self, t):
-        img = Image.new("RGBA", (90, 160), self.tone + (255,))
+        # 4x-supersampling: texten ritas skarp i 360x640 (sen NEAREST x3 -> 1080x1920)
+        S4 = 4
+        img = Image.new("RGBA", (90 * S4, 160 * S4), self.tone + (255,))
         d = ImageDraw.Draw(img, "RGBA")
         for i in range(12):
             rng2 = random.Random(i * 13)
-            x = rng2.randrange(90); sp = 2 + i % 4
-            y = (rng2.randrange(160) + t * sp) % 160
-            d.point((x, y), fill=(70, 90, 120, 140))
-        hb = ptext_fit(self.big, col=(140, 220, 255), scales=(4, 3, 2), maxw=82)
-        img.alpha_composite(hb, ((90 - hb.width) // 2, 34 + int(-6 * min(1.0, t / 0.4))))
+            x = rng2.randrange(90 * S4); sp = (2 + i % 4) * S4
+            y = (rng2.randrange(160 * S4) + t * sp) % (160 * S4)
+            d.rectangle([x, y, x + S4 - 1, y + S4 - 1], fill=(70, 90, 120, 140))
+        hb = ptext_fit(self.big, col=(140, 220, 255), scales=(16, 12, 8), maxw=82 * S4)
+        img.alpha_composite(hb, ((90 * S4 - hb.width) // 2,
+                                 (34 + int(-6 * min(1.0, t / 0.4))) * S4))
         if self.subtitle:
-            hs = ptext_fit(self.subtitle, col=(236, 200, 110), scales=(2, 1), maxw=82)
-            img.alpha_composite(hs, ((90 - hs.width) // 2, 34 + hb.height + 12))
-        y = 34 + hb.height + 40
+            hs = ptext_fit(self.subtitle, col=(236, 200, 110), scales=(5, 4, 3),
+                           maxw=82 * S4)
+            img.alpha_composite(hs, ((90 * S4 - hs.width) // 2,
+                                     34 * S4 + hb.height + 12 * S4))
+        y = 34 * S4 + hb.height + 40 * S4
         for ln in self.lines:
-            hl = ptext_fit(ln, col=(200, 204, 214), scales=(1,), maxw=82)
-            img.alpha_composite(hl, ((90 - hl.width) // 2, y))
-            y += hl.height + 4
+            hl = ptext_fit(ln, col=(200, 204, 214), scales=(3, 2), maxw=82 * S4)
+            img.alpha_composite(hl, ((90 * S4 - hl.width) // 2, y))
+            y += hl.height + 4 * S4
         return img
 
 
@@ -1125,10 +1134,11 @@ def rngline(x0, i, t):
 class StreetRain:
     """Kvällsgata: trottoar (ground=150=korsvägsl nedre?) + bussen vid t_hit."""
 
-    def __init__(self, seed=0, hit_t=None, rain=True):
+    def __init__(self, seed=0, hit_t=None, rain=True, green_t=None):
         self.rng = random.Random(seed)
         self.hit_t = hit_t
         self.rain = rain
+        self.green_t = green_t          # explicit grönt-ljus-tid (oberoende av buss)
         self._build()
 
     def _build(self):
@@ -1169,11 +1179,15 @@ class StreetRain:
     def frame(self, t):
         img = self.bg.copy().convert("RGBA")
         d = ImageDraw.Draw(img, "RGBA")
-        # trafik: röd till 60% av scenens hit, sen grön (fel tidpunkt för grönt!)
-        if self.hit_t is not None and t < self.hit_t - 0.4:
-            d.ellipse([32, 62, 40, 70], fill=(235, 64, 54))
+        # trafik: explicit green_t vinner; annars röd fram till hit-0.4
+        if self.green_t is not None:
+            is_red = t < self.green_t
+        elif self.hit_t is not None:
+            is_red = t < self.hit_t - 0.4
         else:
-            d.ellipse([32, 62, 40, 70], fill=(60, 220, 90))
+            is_red = False
+        d.ellipse([32, 62, 40, 70],
+                  fill=(235, 64, 54) if is_red else (60, 220, 90))
         # BUSSEN: rullar in höger->vänster vid hit_t-0.9, stannar INTE
         if self.hit_t is not None and self.hit_t - 0.95 <= t <= self.hit_t + 0.5:
             p = (t - (self.hit_t - 0.95)) / 1.45
@@ -1650,7 +1664,7 @@ EK_SHAPES = {
 }
 
 
-def make_head_images(cols, hair_style, iris, eyes_kind="default"):
+def make_head_images(cols, hair_style, iris, eyes_kind="default", gaze=0):
     skin, out = cols["S"], cols["K"]
     white = (255, 255, 255, 255)
     ek = EK_SHAPES.get(eyes_kind, EK_SHAPES["default"])
@@ -1699,7 +1713,9 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default"):
                 d.line([(cx - 3, cy - 5), (cx + 3, cy - 5)], fill=out)
             else:
                 d.rectangle([cx - hw, cy + etop - tall, cx + hw, cy + ebot], fill=white)
-                ix0 = cx - max(1, iw - 1)
+                # GAZE: iris CENTRERAD som default (gaze=-1/0/+1). Förr: klistrad
+                # VÄNSTER via cx-max(1,iw-1) => "creepy-stirr åt sidan"-buggen.
+                ix0 = cx - iw // 2 + max(-1, min(1, gaze)) + 1
                 d.rectangle([ix0 - 1, cy + etop + 1 - tall, ix0 + iw - 2, cy + ebot],
                             fill=iris + (255,))
                 # v5 ANIME-iris: lockskugga upptill, bas-glans nedtill, pupill, DUBBEL glans
@@ -1832,14 +1848,23 @@ class AnimeChar:
                                  pants=palette.get("P", (50, 50, 60)),
                                  boots=palette.get("B", (60, 45, 35)),
                                  skin=palette["S"])
-        self.heads, self._with_mouth = make_head_images(palette, hair, iris, eyes_kind)
+        # BLICK-VARIANTER: iris vänster/mitt/höger (levande ögon)
+        self.heads_g = {}
+        self._wm_g = {}
+        for _g in (-1, 0, 1):
+            _h, _wm = make_head_images(palette, hair, iris, eyes_kind, gaze=_g)
+            self.heads_g[_g] = _h
+            self._wm_g[_g] = _wm
+        self.heads, self._with_mouth = self.heads_g[0], self._wm_g[0]
         self._cache = {}
         self.hair_style = hair
         self.dark = palette.get("__dark__", False)
 
-    def full(self, pose, t, eyes="normal", mouth="closed", bruise=False, addons=()):
+    def full(self, pose, t, eyes="normal", mouth="closed", bruise=False, addons=(),
+             gaze=0):
+        gaze = max(-1, min(1, int(gaze)))
         key = (pose, round(t * (6.0 if pose in ("walk", "run") else 2.0), 2),
-               eyes, mouth, bruise, addons)
+               eyes, mouth, bruise, addons, gaze)
         if key in self._cache:
             return self._cache[key]
         img = Image.new("RGBA", (BODY_CV_W, BODY_CV_H), (0, 0, 0, 0))
@@ -1847,8 +1872,9 @@ class AnimeChar:
                        t if pose in ("walk", "run", "idle", "mov") else 0.0)
         draw_body(img, self.suit, j, scale=1.0)
         # huvud: neck-led (0,56) -> huvudets nederdel ditsätts
-        head = self.heads.get(eyes, self.heads["normal"])
-        head = self._with_mouth(head, mouth, addons)
+        hg = self.heads_g[gaze]
+        head = hg.get(eyes, hg["normal"])
+        head = self._wm_g[gaze](head, mouth, addons)
         if bruise:
             hd = ImageDraw.Draw(head)
             hd.point((20, 16), fill=(235, 90, 90, 255))

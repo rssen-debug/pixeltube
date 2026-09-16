@@ -141,6 +141,40 @@ def draw_sub(pil_img, text, who=None):
     pil_img.alpha_composite(t, (x_text + 4, y0 + pad_y))
 
 
+def draw_sub_sync(pil_img, text, who, prog):
+    """RWJ word-sync captions (VERT): 2-4 ord i taget, enorma, på 62% höjd.
+    prog = 0..1 genom replikens riktiga ljud (char-viktad fras-timing)."""
+    words = (text or "").split()
+    if not words:
+        return
+    phrases, cur = [], ""
+    for w_ in words:
+        if len((cur + " " + w_).strip()) <= 13:
+            cur = (cur + " " + w_).strip()
+        else:
+            phrases.append(cur); cur = w_
+    if cur:
+        phrases.append(cur)
+    total_w = sum(max(3, len(p)) for p in phrases)
+    cp = min(1.0, max(0.0, prog))
+    acc, idx2 = 0.0, len(phrases) - 1
+    for i3, p3 in enumerate(phrases):
+        acc += max(3, len(p3)) / total_w
+        if cp <= acc:
+            idx2 = i3
+            break
+    d = ImageDraw.Draw(pil_img, "RGBA")
+    t = E.ptext(phrases[idx2], scale=5, col=(255, 255, 255))
+    pad_x, pad_y = 34, 24
+    bw, bh = t.width + pad_x * 2 + 8, t.height + pad_y * 2
+    x0 = (OUTW - bw) // 2
+    y0 = int(OUTH * 0.62) - bh
+    d.rectangle([x0 + 5, y0 + 6, x0 + bw + 5, y0 + bh + 6], fill=(0, 0, 0, 120))
+    d.rectangle([x0, y0, x0 + bw, y0 + bh], fill=(12, 12, 20, 205),
+                outline=(90, 90, 120, 225), width=3)
+    pil_img.alpha_composite(t, (x0 + pad_x + 4, y0 + pad_y))
+
+
 # -------------------------------------------------------------------------- #
 # EPISOD 1 – REGIBOKEN. Tider är scen-lokala (sekunder).                    #
 # -------------------------------------------------------------------------- #
@@ -753,13 +787,12 @@ class Renderer:
                 flip = gx < x
             if pose == "mov":
                 pose = "walk1" if int(local_t * 6) % 2 == 0 else "walk2"
-            # auto-blink (2.7-4.1s intervaller, seedat per namn)
+            # auto-blink: 0.24s >= 2 frames @12fps (0.13s försvann mellan sampel)
             eyes, bruise, smouth = act.face_at(local_t)
             rng = random.Random(hash(name) & 0xffff)
             cyc = 2.4 + rng.random() * 1.9
             ph = rng.random() * cyc
-            if eyes == "normal" and ((local_t + ph) % cyc) < 0.13:
-                eyes = "blink"
+            want_blink = ((local_t + ph) % cyc) < 0.24
             # mun: läppsynk har företräde, annars normal/stängd
             mouth = "closed"
             fi = int(local_t * FPSS)
@@ -777,9 +810,26 @@ class Renderer:
                     mouth = mo_open if mouth == "open" else mo_closed
                     addons = madd
                     break
+            # blink SLUTLIGEN: slår över lugna tillstånd även efter mood-override
+            if want_blink and eyes in ("normal", "sad", "angry"):
+                eyes = "blink"
+            # BLICK (screen-space): gåendes åt färdhållet; lyssnare mot talaren;
+            # annars lever blicken (L/C/R var ~3:e sek, seedat per karaktär)
+            if pose in ("mov", "walk1", "walk2", "run"):
+                gaze_scr = -1 if flip else 1
+            elif gwho and name != gwho and gx is not None:
+                gaze_scr = 1 if gx > x else -1
+            else:
+                r2 = random.Random((hash(name) & 0xffff) ^ 5150)
+                cyc2 = 2.6 + r2.random() * 1.4
+                step2 = int((local_t + r2.random() * cyc2) / cyc2)
+                gaze_scr = random.Random(((hash(name) & 0xffff) ^ 91) + step2).choice(
+                    (0, 0, -1, 1, 0))
+            gaze_can = -gaze_scr if flip else gaze_scr     # bilden speglas efter full()
             # aura bakom karaktären hanteras av fx nedan (ordning: aura pre-actors)
             rig_pose = {"mov": "walk", "walk1": "walk", "walk2": "walk"}.get(pose, pose)
-            ch_img = act.char.full(rig_pose, local_t, eyes, mouth, bruise, addons)
+            ch_img = act.char.full(rig_pose, local_t, eyes, mouth, bruise, addons,
+                                   gaze=gaze_can)
             if flip:
                 from PIL import ImageOps as _IO
                 ch_img = _IO.mirror(ch_img)
@@ -995,108 +1045,143 @@ def episode_905(cast):
 
 
 def episode_905v(cast):
+    """9-5 VERT v3 — RAY-WILLIAM-JOHNSON storytime. 10 berättar-repliker,
+    orsak->verkan: 5-min-hook -> loopen -> Dave-gag -> grönt ljus -> bussen ->
+    void-twist (livet var tutorialn). Word-sync captions + levande ögon.
+    Tider låsta mot uppmätta TTS-längder (tts/line00-09, stretch x0.82)."""
     sc = []
+    # 0) HOOK (0-5.5): "five minutes to live" — countdown-retention
     sc.append({
-        "env": ("street", {"hit_t": None}), "dur": 7.0, "letterbox": 0, "fadein": 0.25,
+        "env": ("street", {"hit_t": None, "green_t": None}), "dur": 5.5, "fadein": 0.25,
         "mood": "ominous",
-        "cam": [{"kind": "pan", "x": lambda t: 190 - t * 12.0}],
         "actors": {
-            "tom": {"track": [(0, 232, True), (2.6, 148, True), (7.0, 104, True)],
-                    "blocks": [(0, 7.0, "mov")], "faces": [(1.6, "sad", True)]},
+            "tom": {"track": [(0, 250, True), (3.2, 150, True), (5.5, 110, True)],
+                    "blocks": [(0, 5.5, "mov")], "faces": [(1.4, "sad", False)]},
         },
-        "fx": [{"kind": "stamp", "t0": 0.05, "t1": 2.4, "text": "DAY 9 413", "scale": 6,
-                "x": 60, "y": 120, "color": (255, 120, 100)}],
-        "lines": [(0.5, "narr", "He lived the same day..."),
-                  (2.6, "narr", "...nine thousand times."),
-                  (4.6, "narr", "Rain. Coat. Crosswalk. Repeat.")],
-        "audio": [(0.2, "boom", 0.35), (6.2, "horn", 0.28)]})
+        "lines": [(0.35, "narr", "This is Tom. Tom has exactly five minutes to live.")],
+        "audio": [(0.15, "boom", 0.35), (4.35, "horn", 0.2)]})
+    # 1) LOOPEN (5.5-12.0): samma morgon, DAY 1
     sc.append({
-        "env": ("apartment", {}), "dur": 7.6, "mood": "cozy",
-        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.02, "focus": (96, 96)}],
+        "env": ("apartment", {}), "dur": 6.5, "mood": "cozy",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.016, "focus": (96, 96)}],
         "actors": {
-            "tom": {"track": [(0, 34, False), (2.0, 34, False), (4.6, 96, False), (7.6, 100, False)],
-                    "blocks": [(0, 2.0, "idle"), (2.0, 4.6, "walk1"), (4.6, 7.6, "idle")],
-                    "faces": [(0.4, "sad", False), (5.8, "normal", False)]},
+            "tom": {"track": [(0, 34, False), (1.8, 34, False), (4.4, 96, False),
+                              (6.5, 98, False)],
+                    "blocks": [(0, 1.8, "idle"), (1.8, 4.4, "walk1"), (4.4, 6.5, "idle")],
+                    "faces": [(0.4, "sad", False), (4.0, "normal", False)]},
         },
-        "fx": [{"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "DAY", "scale": 7, "x": 60, "y": 110},
-               {"kind": "stamp", "t0": 0.5, "t1": 3.4, "text": "1", "scale": 7, "x": 60, "y": 260}],
-        "lines": [(1.0, "narr", "Day one: alarm, coffee, door.")],
-        "audio": [(0.05, "alarm", 0.9), (0.5, "alarm", 0.7), (1.1, "thud", 0.6)]})
+        "fx": [{"kind": "stamp", "t0": 0.5, "t1": 4.4, "text": "DAY 1", "scale": 7,
+                "x": 403, "y": 170}],
+        "lines": [(0.45, "narr",
+                   "Every morning is the same morning. Alarm. Coffee. Coat. Repeat.")],
+        "audio": [(0.05, "alarm", 0.9), (0.5, "alarm", 0.7), (2.0, "thud", 0.6)]})
+    # 2) ESKALATION (12.0-16.6): DAY 9 412, punch-zoom + shake
     sc.append({
-        "env": ("apartment", {}), "dur": 3.6, "mood": "cozy",
+        "env": ("apartment", {}), "dur": 4.6, "mood": "cozy",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.14, "focus": (96, 96)},
+                {"kind": "shake", "t0": 0.0, "t1": 0.35, "amp": 3}],
         "actors": {
-            "tom": {"track": [(0, 34, False), (1.5, 96, False), (3.6, 96, False)],
-                    "blocks": [(0, 0.6, "idle"), (0.6, 1.5, "walk1"), (1.5, 3.6, "idle")],
-                    "faces": [(0.2, "sad", False)]},
+            "tom": {"track": [(0, 34, False), (1.4, 96, False), (4.6, 96, False)],
+                    "blocks": [(0, 0.5, "idle"), (0.5, 1.4, "walk1"), (1.4, 4.6, "idle")],
+                    "faces": [(0.3, "sad", False)]},
         },
-        "fx": [{"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "DAY", "scale": 7, "x": 60, "y": 110},
-               {"kind": "stamp", "t0": 0.15, "t1": 2.6, "text": "9 412", "scale": 6, "x": 60, "y": 270}],
-        "lines": [(0.7, "narr", "Day 9,412... still counting.")],
-        "audio": [(0.05, "alarm", 0.6)]})
+        "fx": [{"kind": "stamp", "t0": 0.25, "t1": 3.2, "text": "DAY", "scale": 7,
+                "x": 452, "y": 150},
+               {"kind": "stamp", "t0": 0.25, "t1": 3.2, "text": "9 412", "scale": 6,
+                "x": 423, "y": 330}],
+        "lines": [(0.35, "narr", "Nine thousand. Four hundred. And twelve.")],
+        "audio": [(0.05, "alarm", 0.8)]})
+    # 3) TÅGET (16.6-23.4)
     sc.append({
-        "env": ("platform", {"train_t": 2.8}), "dur": 7.6, "mood": "ominous",
-        "cam": [{"kind": "pan", "x": lambda t: 148 + t * 2.4}],
+        "env": ("platform", {"train_t": 2.2}), "dur": 6.8, "mood": "ominous",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.02, "focus": (168, 96)}],
         "actors": {
-            "tom": {"track": [(0, 168, False), (7.6, 168, False)],
-                    "blocks": [(0, 7.6, "idle")],
-                    "faces": [(0.4, "sad", False), (5.6, "normal", False)]},
+            "tom": {"track": [(0, 168, False), (6.8, 168, False)],
+                    "blocks": [(0, 6.8, "idle")],
+                    "faces": [(0.4, "sad", False), (4.6, "normal", False)]},
         },
-        "lines": [(0.6, "narr", "Same train. Same seat. Same song.")],
-        "audio": [(2.7, "rumble", 0.95), (4.9, "whoosh", 0.7)]})
+        "lines": [(0.5, "narr",
+                   "Same train. Same seat. Same guy humming. Every single day.")],
+        "audio": [(2.1, "rumble", 0.95), (3.5, "whoosh", 0.7)]})
+    # 4) KONTORET + DAVE-GAGEN (23.4-36.3): vinkar -> ignoreras -> går hängd
     sc.append({
-        "env": ("office", {}), "dur": 8.6, "mood": "mystery",
-        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.014, "focus": (200, 96)}],
+        "env": ("office", {}), "dur": 12.9, "mood": "mystery",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.012, "focus": (204, 96)}],
         "actors": {
-            "tom": {"track": [(0, 204, False), (8.6, 206, False)],
-                    "blocks": [(0, 8.6, "idle")],
-                    "faces": [(1.0, "normal", False), (5.4, "wide", False),
-                              (6.2, "sad", False)]},
-            "col": {"track": [(5.2, -34, False), (6.1, 182, False), (8.6, 192, False)],
-                    "blocks": [(0, 5.2, "none"), (5.2, 6.1, "mov"), (6.1, 8.6, "idle")],
-                    "faces": [(5.8, "happy", False)]},
+            "tom": {"track": [(0, 204, False), (12.9, 206, False)],
+                    "blocks": [(0, 12.9, "idle")], "faces": [(1.0, "normal", False)]},
+            "col": {"track": [(6.5, -34, False), (7.4, 176, False), (8.0, 180, False),
+                              (9.1, 178, True), (11.5, -40, True)],
+                    "blocks": [(0, 6.5, "none"), (6.5, 7.4, "mov"), (7.4, 7.7, "idle"),
+                               (7.7, 8.3, "point"), (8.3, 8.9, "idle"),
+                               (8.9, 11.5, "mov")],
+                    "faces": [(6.0, "happy", False), (9.2, "sad", False)]},
         },
-        "lines": [(0.5, "narr", "His job? Move numbers all day."),
-                  (5.4, "narr", "HEY TOM! But he did not hear it.")],
-        "audio": []})
+        "lines": [(0.4, "narr",
+                   "At work, Tom moves numbers from one box... to another box. It means nothing."),
+                  (6.4, "narr",
+                   "This is Dave. Dave waves at Tom every day. Tom has NEVER waved back.")],
+        "audio": [(7.6, "pop", 0.45), (7.95, "bonk", 0.4)]})
+    # 5) NEDRÄKNING (36.3-41.8): grönt ljus (green_t 1.9 ~ "goes green"-ordet)
     sc.append({
-        "env": ("street", {"hit_t": 6.2}), "dur": 9.2, "letterbox": 0, "fadeout": 0.5,
-        "mood": "menace",
-        "cam": [{"kind": "pan", "x": lambda t: 140 - t * 4.2},
-                {"kind": "shake", "t0": 6.2, "t1": 6.8, "amp": 5}],
+        "env": ("street", {"hit_t": None, "green_t": 1.9}), "dur": 5.5, "mood": "menace",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.05 + t * 0.01, "focus": (90, 96)}],
         "actors": {
-            "tom": {"track": [(0, 148, True), (2.0, 66, True), (4.4, 66, True),
-                              (5.0, 76, False), (5.9, 94, False), (6.05, 96, False),
-                              (6.9, 96, False), (10, 96, False)],
-                    "blocks": [(0, 2.0, "mov"), (2.0, 4.4, "idle"), (4.6, 5.5, "walk1"),
-                               (6.2, 6.5, "hurt"), (6.5, 10, "fall")],
-                    "faces": [(0.4, "normal", True), (2.2, "sad", True),
-                              (5.0, "wide", False), (6.2, "whiteout", False)]},
+            "tom": {"track": [(0, 150, True), (1.7, 66, True), (5.5, 66, True)],
+                    "blocks": [(0, 1.7, "mov"), (1.7, 5.5, "idle")],
+                    "faces": [(2.0, "normal", False)]},
         },
-        "lines": [(0.6, "narr", "Then the light turned green."),
-                  (3.4, "narr", "One step. One horn. The End.")],
-        "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True},
-               {"kind": "blood", "t": 6.22, "x": 96, "y": 140},
-               {"kind": "stamp", "t0": 4.85, "t1": 6.18, "text": "!!", "scale": 14,
+        "lines": [(0.5, "narr",
+                   "Five oh one PM. The light goes green. It's always green.")],
+        "audio": [(1.9, "sparkle", 0.5)]})
+    # 6) BUSSEN (41.8-47.8): talet tar slut 4.4 -> hit 4.52 = andhämtningen man hinner
+    sc.append({
+        "env": ("street", {"hit_t": 4.52, "green_t": 0.0}), "dur": 6.0,
+        "music_vol": 0.85, "mood": "menace", "fadeout": 0.5,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.03, "focus": (85, 96)},
+                {"kind": "shake", "t0": 4.52, "t1": 5.1, "amp": 5}],
+        "actors": {
+            "tom": {"track": [(0, 70, True), (3.6, 70, True), (4.3, 92, False),
+                              (6.0, 94, False)],
+                    "blocks": [(0, 3.6, "idle"), (3.6, 4.3, "walk1"), (4.3, 4.52, "idle"),
+                               (4.52, 4.9, "hurt"), (4.9, 99, "fall")],
+                    "faces": [(3.5, "wide", False), (4.52, "whiteout", True)]},
+        },
+        "lines": [(0.4, "narr", "But today? The number forty two bus has other plans.")],
+        "fx": [{"kind": "impact", "t": 4.52, "x": 100, "y": 96, "invert": True},
+               {"kind": "blood", "t": 4.54, "x": 94, "y": 140},
+               {"kind": "stamp", "t0": 3.7, "t1": 4.49, "text": "!!", "scale": 14,
                 "x": 400, "y": 520, "color": (235, 60, 50)}],
-        "audio": [(4.9, "horn", 1.0), (5.6, "rumble", 0.9), (6.2, "boom", 1.0)]})
+        "audio": [(3.2, "horn", 1.0), (3.55, "rumble", 0.9), (4.52, "boom", 1.0)]})
+    # 7) VOID (47.8-61.3): nästan-tyst pattern interrupt -> twist: livet = tutorialn
     sc.append({
-        "env": ("void", {}), "dur": 8.4, "fadein": 0.8, "mood": "mystery",
+        "env": ("void", {}), "dur": 13.5, "fadein": 0.8, "mood": "mystery",
+        "music_vol": 0.2,
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.007, "focus": (160, 90)}],
         "actors": {
-            "tom": {"track": [(0, 160, False), (8.4, 160, False)],
-                    "blocks": [(0, 8.4, "idle")],
-                    "faces": [(0.3, "wide", False), (2.6, "spark", False),
-                              (5.2, "normal", False)]},
+            "tom": {"track": [(0, 160, False), (13.5, 160, False)],
+                    "blocks": [(0, 13.5, "idle")],
+                    "faces": [(0.3, "wide", False), (2.8, "sad", False),
+                              (4.8, "normal", False), (11.8, "spark", False),
+                              (13.0, "normal", False)]},
         },
-        "lines": [],
-        "fx": [{"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "PLAYER 2", "scale": 5,
-                "x": 230, "y": 180, "color": (140, 170, 220)},
-               {"kind": "stamp", "t0": 6.4, "t1": 8.4, "text": "READY", "scale": 5,
-                "x": 330, "y": 290, "color": (140, 170, 220)}],
-        "audio": [(0.2, "sparkle", 0.5), (6.2, "sparkle", 0.6)]})
-    sc.append({"env": ("vcard", {"big": "LEVEL 0", "subtitle": "CONTINUE?",
-                                  "lines": ["Y / N", "save him?", "bus-kun waits..."],
+        "lines": [(1.0, "narr", "Then? Nothing. No alarm. No Dave. Just... white."),
+                  (6.9, "narr",
+                   "Turns out Tom's whole life... was the tutorial. Level one starts NOW.")],
+        "fx": [{"kind": "stamp", "t0": 7.0, "t1": 9.3, "text": "LEVEL 0", "scale": 8,
+                "x": 328, "y": 240, "color": (140, 170, 220)},
+               {"kind": "stamp", "t0": 12.2, "t1": 13.5, "text": "CONTINUE?", "scale": 7,
+                "x": 300, "y": 240, "color": (140, 170, 220)},
+               {"kind": "stamp", "t0": 12.2, "t1": 13.5, "text": "Y / N", "scale": 7,
+                "x": 410, "y": 420, "color": (246, 240, 200)}],
+        "audio": [(0.3, "sparkle", 0.35), (7.1, "riser", 0.4), (12.3, "sparkle", 0.55)]})
+    # 8) LOOPBAIT-KORT (61.3-63.3)
+    sc.append({"env": ("vcard", {"big": "9-5", "subtitle": "LIFE WAS LEVEL 0",
+                                  "lines": ["day 9413: he quit", "the bus remembers",
+                                            "follow for part 2"],
                                   "tone": (26, 34, 62)}),
-               "dur": 1.8, "fadein": 0.25, "mood": "sting"})
+               "dur": 2.0, "fadein": 0.25, "mood": "sting",
+               "audio": [(0.1, "pop", 0.5)]})
     return sc
 
 
@@ -1164,7 +1249,11 @@ def main():
 
     msegs = []
     for i2, s2 in enumerate(scenes):
-        msegs.append(musicmod.section(_scene_mood(s2), s2["dur"] + 0.02, seed=77 + i2 * 37))
+        seg = musicmod.section(_scene_mood(s2), s2["dur"] + 0.02, seed=77 + i2 * 37)
+        mv = s2.get("music_vol", 1.0)
+        if mv != 1.0:
+            seg = (seg * mv).astype(np.float32)     # tystnad som pattern-interrupt
+        msegs.append(seg)
     track = np.concatenate(msegs) if msegs else np.zeros(8, dtype=np.float32)
     put(0.0, track, 0.55)
     print("   🎵 moods:", [_scene_mood(s2) for s2 in scenes])
@@ -1204,7 +1293,7 @@ def main():
             tts_used.append(tts_path)
             put(cur + lt, arr, 0.9)
             dur = len(arr) / voicemod.SR
-            lines_global.append((i, who, text, lt, lt + max(dur, 0.5) + 1.1))
+            lines_global.append((i, who, text, lt, lt + max(dur, 0.5) + 0.65))
             if who in cast and who not in ("narr", "hood"):
                 mo = mouth_track(arr)
                 pre = np.zeros(int(lt * FPSS), bool)
@@ -1353,8 +1442,9 @@ def main():
             ops.append({"kind": "letterbox", "h": s["letterbox"]})
         if ops:
             small = E.apply_camera(small, lt, ops)
-        if VERT and small.width > 90:
-            # 9:16-crop: 90x160 logiskt fönster som följer huvudpersonen
+        if VERT and small.width > 90 and env_kind in ("dock", "dojo", "apartment",
+                                                      "platform", "office", "street", "void"):
+            # 9:16-crop: 90x160 logiskt fönster som följer huvudpersonen (kort croppas aldrig)
             fx_anchor = 160
             try:
                 for a_nm in ("tom", "ren"):
@@ -1383,7 +1473,11 @@ def main():
         if env_kind in ("dock", "dojo", "apartment", "platform", "office", "street", "void"):
             for who, text, t0, t1 in lwins_all[idx]:
                 if t0 <= lt <= t1:
-                    draw_sub(img, text, who)
+                    if VERT:
+                        aud = max(0.4, t1 - t0 - 0.65)     # riktig tal-längd (utan svans)
+                        draw_sub_sync(img, text, who, (lt - t0) / aud)
+                    else:
+                        draw_sub(img, text, who)
                     break
         # fades
         if s.get("fadein") and lt < s["fadein"]:

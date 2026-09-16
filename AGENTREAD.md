@@ -618,3 +618,28 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
   MAX 34 tecken/rad (vertikal 4-skala passform).
 - VERT CAPTIONS: scale 4 + y = 62% höjd (mitt-nedateddel, ej UI-täckt), pad 30/22.
 - tts/ bevara 24kHz-mono i WAV; voices.battle_id=00. Forts. ledger >10 clips -> fler turer.
+
+## 10d. 9-5 VERT v3 — RWJ-storytime + levande ögon (2026-09-16)
+- **ÖGON-SYSTEMET (v2engine)**: `make_head_images(..., gaze=-1|0|1)` — iris CENTRERAD
+  som default (buggen `ix0=cx-max(1,iw-1)` klistrade iris VÄNSTER alltid = "creepy-stirr").
+  AnimeChar bygger `heads_g`/`_wm_g` per blickläge; `full(..., gaze=)` väljer variant.
+  I v2make `scene_frame`: gående tittar åt färdhållet (`-1 if flip else 1`), idle-lyssnare
+  mot talaren, annars seedad L/C/R-vandring ~var 3:e sek. Skicka SKÄRM-blick; metoden
+  speglar själv (`gaze_can = -gaze_scr if flip`).
+- **BLINK**: 0.24s (>= 2 frames @12fps — 0.13s försvann mellan sampel), appliceras EFTER
+  mood-override och bara över ("normal","sad","angry"). Verifierad i render via
+  ögonvita-räkning (drop till 0 i 3 frames).
+- **WORD-SYNC captions (VERT)**: `draw_sub_sync` — 2-4 ord/slagg, skala 5, 62% höjd,
+  char-viktad fras-timing mot äkta TTS-ljud (`prog=(lt-t0)/(t1-t0-0.65)`). Landscape
+  använder fortf draw_sub. Caption-svans 1.1 -> 0.65s (word-sync tar slut vid talet).
+- **StreetRain**: ny param `green_t` (grönt ljus frikopplat från buss-hit_t).
+- **VertCard**: 4x-supersamplad canvas (360x640) så texten är skarp efter resize.
+  VARNING: VERT-croppen i main gäller bara scene-envs nu — kort lämnas orörda.
+- **ptext_fit**: hård floor — krymper till maxw via NEAREST om skalan 1 ändå svämmar.
+- **music_vol** per scen: 0.2 i void = nästan-tyst pattern interrupt.
+- **TEMPO-FÄLLAN**: TTS blev ~65% långsammare än manus-estimat → sträck wavs x0.82
+  (np.interp) ELLER gör scen-längderna längre. Nu: BÅDA (längder låsta mot mätta
+  värden; att ändra texter = mät om line00-09 igen).
+- **RWJ-receptet**: hook = faktisk countdown ("five minutes to live"), mid-scene gag
+  (Dave vinkar/ignoreras/går hängd), berättaren hinner precis klart före BOOM,
+  void-tystnad som reset, twist = retentions-krok till part 2 ("livet var tutorialn").
