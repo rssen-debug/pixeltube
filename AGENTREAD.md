@@ -408,6 +408,29 @@ C-part-tease -> jikai yokoku (NEXT EPISODE-kort). Allt finns i v2make.
   för texter som ska rymmas – robotfonten saknar unicode (inga –/★)!
 * Underteckning: sub ritas EFTER kamera/letterbox (annars croppar zoom-pillret).
 
+## 9g. v2/v3 REAL ANIME RIG – INTE pixelgubbar
+
+Användaren nobbade chibi-sprites: "exakt som anime, bara i pixlar".
+Lösningen: AnimeChar (skelett-kapsel-rigg, 56x92 canvas, animeproportioner
+~1:3.5) + mänskliga animeansikten (iris+glans, ögonfrans-linje, bryn, näsa).
+
+* joints_for(pose,t): gång/spring = sinus-leder (fötter knä-lerp + bend),
+  punch = armen rak + torso-skjut, hurt = sig bakåt armar upp, point/guard,
+  idle-andning. walk2/run = tidsdrivet (ingen frame-paritet).
+* draw_body: kapslar med outline FÖRST (mörk kontur = pixel-lim), byxor,
+  jacka-torso + krage + dragkedja, boots m. tå, skin-händer. Bakre ben
+  mörkare (djup). Skalning per aktör (kaba 1.12).
+* make_head_images: käke-polygon + hårpolygontoppar (spiky/long/pony/hawk)
+  + per-state ögon (lash, iris, vit glansprick; angry = smalt + bryn;
+  x/spark/blink/sad/wide) + näsa + mun-lager dynamiskt varje frame.
+* bust(): bröstbild (huvud + jackkrage) för cut-ins & kort.
+* cutin(img,char,side): dämpad scen + vifte-strålar i karaktärsfärg +
+  stor byst 9x med 0.14s inbroms-slide + namnplatta. Appliceras AUTO vid
+  varje replik från cast-medlem (ej narrator) – anime reaktionsklipp.
+* Undertext ritas EFTER cutin (alltid läsbar över porträttet).
+* LÄRDOM: bygg ALDRIG huvud-art i två loopar – håret glömdes i loop #2
+  (alla blev flint). Verifiera ALLTID visuellt före fullrender (probe-grid).
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's

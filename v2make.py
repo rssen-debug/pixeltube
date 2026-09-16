@@ -37,22 +37,23 @@ SERIES = "VOLT BREAKER"
 # ROLLLISTA (v2 – människor!)                                               #
 # -------------------------------------------------------------------------- #
 def build_cast():
+    suit = E.Suit
     return {
-        "ren":  E.PXChar("ren",  {"H": (245, 130, 40), "S": (255, 215, 175), "T": (42, 64, 150),
-                                  "P": (48, 48, 66), "B": (72, 52, 40), "A": (30, 26, 36)},
-                         hair="spiky", voice_pitch="ren"),
-        "yuki": E.PXChar("yuki", {"H": (234, 236, 248), "S": (252, 226, 200), "T": (52, 54, 64),
-                                  "P": (30, 30, 44), "B": (40, 36, 40), "A": (180, 180, 200)},
-                         hair="long", voice_pitch="yuki"),
-        "mika": E.PXChar("mika", {"H": (245, 120, 170), "S": (255, 218, 185), "T": (186, 50, 78),
-                                  "P": (60, 60, 90), "B": (90, 50, 66), "A": (255, 220, 130)},
-                         hair="pony", voice_pitch="mika"),
-        "kaba": E.PXChar("kaba", {"H": (44, 44, 54), "S": (192, 196, 206), "T": (110, 30, 42),
-                                  "P": (40, 40, 48), "B": (30, 28, 30), "A": (120, 120, 132)},
-                         hair="hawk", scale=1.12, voice_pitch="kaba"),
-        "hood": E.PXChar("hood", {"H": (22, 22, 30), "S": (26, 26, 36), "T": (24, 24, 34),
-                                  "P": (22, 22, 32), "B": (20, 20, 30), "A": (28, 28, 40)},
-                         hair="long", scale=0.95, voice_pitch="narr"),
+        "ren":  E.AnimeChar("ren",  {"H": (245, 130, 40), "S": (255, 215, 175), "T": (42, 64, 150),
+                                     "P": (48, 48, 66), "B": (72, 52, 40), "K": (24, 22, 28)},
+                              hair="spiky", iris=(200, 120, 40), voice_pitch="ren"),
+        "yuki": E.AnimeChar("yuki", {"H": (234, 236, 248), "S": (252, 226, 200), "T": (52, 54, 64),
+                                     "P": (30, 30, 44), "B": (40, 36, 40), "K": (24, 22, 28)},
+                              hair="long", iris=(110, 190, 235), voice_pitch="yuki"),
+        "mika": E.AnimeChar("mika", {"H": (245, 120, 170), "S": (255, 218, 185), "T": (186, 50, 78),
+                                     "P": (60, 60, 90), "B": (90, 50, 66), "K": (24, 22, 28)},
+                              hair="pony", iris=(210, 80, 150), voice_pitch="mika"),
+        "kaba": E.AnimeChar("kaba", {"H": (44, 44, 54), "S": (192, 196, 206), "T": (110, 30, 42),
+                                     "P": (40, 40, 48), "B": (30, 28, 30), "K": (20, 16, 22)},
+                              hair="hawk", iris=(200, 60, 60), scale=1.12, voice_pitch="kaba"),
+        "hood": E.AnimeChar("hood", {"H": (22, 22, 30), "S": (34, 34, 44), "T": (26, 26, 38),
+                                     "P": (24, 24, 34), "B": (22, 22, 32), "K": (10, 10, 16)},
+                              hair="long", iris=(90, 90, 120), scale=0.95, voice_pitch="narr"),
     }
 
 
@@ -172,7 +173,7 @@ def episode_001(cast):
                      "blocks": [(0, 2.0, "none"), (2.0, 3.55, "hurt"), (3.55, 8.6, "guard"),
                                 (8.6, 99, "point")],
                      "faces": [(4.2, "angry", False)],
-                     "drop": (3.2, -110)},
+                     "drop": (3.2, -180)},
         },
         "lines": [(4.6, "kaba", "The signal tower answers to ME now. Crawl home, kids."),
                   (8.6, "ren", "Kids?! KIDS?!"),
@@ -324,9 +325,13 @@ class Renderer:
             if fi < act.mouth.size and act.mouth[fi]:
                 mouth = "open"
             # aura bakom karaktären hanteras av fx nedan (ordning: aura pre-actors)
-            ch_img = act.char.get(pose, eyes, mouth, bruise, flip)
+            rig_pose = {"mov": "walk", "walk1": "walk", "walk2": "walk"}.get(pose, pose)
+            ch_img = act.char.full(rig_pose, local_t, eyes, mouth, bruise)
+            if flip:
+                from PIL import ImageOps as _IO
+                ch_img = _IO.mirror(ch_img)
             bx = x - ch_img.width // 2
-            by = E.GROUND - ch_img.height + act.y_off
+            by = E.GROUND - (E.GROUND_CV if hasattr(E, "GROUND_CV") else ch_img.height) + act.y_off
             if act.drop and local_t < act.drop[0]:
                 p = max(0.0, local_t / act.drop[0])
                 by += int((1 - (p * p)) * act.drop[1])
@@ -499,6 +504,17 @@ def main():
                 ops.append({"kind": "letterbox", "h": s["letterbox"]})
             small = E.apply_camera(small, lt, ops)
         img = small.resize((OUTW, OUTH), NEAREST)
+        # ---- CUT-IN närbild under replik (anime-reaktionsklipp) -------------
+        cutwho, cutwin = None, None
+        if env_kind in ("dock", "dojo"):
+            for who, text, t0, t1 in lwins_all[idx]:
+                if t0 <= lt <= t1 and who in cast and who not in ("narr", "hood"):
+                    cutwho, cutwin = who, (t0, t1)
+                    break
+        if cutwho:
+            side = (lwins_all[idx][0][0] != cutwho)
+            img = E.cutin(img, cast[cutwho], lt - cutwin[0], side, cutwho,
+                          CHIP_COLS.get(cutwho, (150, 150, 150)))
         # ---- undertext EFTER kamera (aldrig croppad av zoom) ---------------
         if env_kind in ("dock", "dojo"):
             for who, text, t0, t1 in lwins_all[idx]:

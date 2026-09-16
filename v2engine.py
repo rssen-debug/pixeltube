@@ -685,9 +685,10 @@ class EyecatchCard(Card):
                 d.polygon([(i * 18 - int(t * 60) % 36, H), (i * 18 + 40 - int(t * 60) % 36, 0),
                            (i * 18 + 64 - int(t * 60) % 36, 0), (i * 18 + 24 - int(t * 60) % 36, H)],
                           fill=col)
-        who = self.px.get("punch" if not self.dark else "hurt",
-                          face_eyes="angry", face_mouth="grin", flip=self.dark)
-        big = who.resize((who.width * 5, who.height * 5), NEAREST)
+        big = self.px.get_bust_scaled("angry", "grin", 5)
+        if self.dark:
+            from PIL import ImageOps as _IO
+            big = _IO.mirror(big)
         bob = int(math.sin(t * 6) * 3)
         img.alpha_composite(big, (10, H - big.height - 6 + bob))
         nm = ptext_fit(self.series, col=(255, 255, 255), scales=(3, 2, 1), maxw=150)
@@ -842,4 +843,352 @@ def impact_flash(img, t0, t, invert=False):
             return Image.blend(img.convert("RGB"), arr.convert("RGB"), min(1.0, p * 2)).convert("RGBA")
         white = Image.new("RGBA", img.size, (255, 255, 255, 255))
         return Image.blend(img, white, (1 - p) * 0.92)
+    return img
+
+
+# ===========================================================================
+# v3 REAL ANIME RIG – skelett-kapsel-kropp (animeproportioner, INTE chibi)
+# + detaljerat animehuvud (iris, glans, ögonfrans, bryn, näsa)
+# ===========================================================================
+from PIL import ImageChops
+
+BODY_CV_W, BODY_CV_H = 56, 92
+GROUND_CV = 88            # lokala y=0 (golv) mappar hit
+JW, JW2 = 5, 4            # kapseltjocklekar
+
+
+def _cap(d, p0, p1, col, wdt, outl):
+    if outl:
+        d.line([(p0[0], p0[1]), (p1[0], p1[1])], fill=outl, width=wdt + 2)
+    d.line([(p0[0], p0[1]), (p1[0], p1[1])], fill=col, width=wdt)
+    r = wdt / 2
+    for p in (p0, p1):
+        d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=col)
+
+
+def _stand():
+    """Lokala leder, +x = framåt (höger), +y = UPPÅT från golvyta 0."""
+    return {
+        "footL": (-5, 0), "footR": (5, 0),
+        "kneeL": (-5, 15), "kneeR": (5, 15),
+        "hipL": (-3, 29), "hipR": (3, 29),
+        "pelvis": (0, 30),
+        "shoulderL": (-8, 54), "shoulderR": (8, 54),
+        "elbowL": (-10, 42), "elbowR": (10, 42),
+        "handL": (-10, 31), "handR": (10, 31),
+        "neck": (0, 56),
+    }
+
+
+def _mid(a, b, f=0.5):
+    return (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+
+
+def joints_for(pose, t):
+    j = _stand()
+    if pose in ("walk", "run"):
+        run = pose == "run"
+        ph = 2 * math.pi * (t * (2.0 if run else 1.25))
+        sw = 11.0 if run else 7.0
+        j["footL"] = (-5 + sw * math.sin(ph), max(0.0, 2.6 * math.cos(ph - 0.5)))
+        j["footR"] = (5 - sw * math.sin(ph), max(0.0, 2.6 * math.cos(ph + math.pi - 0.5)))
+        for side in ("L", "R"):
+            hip = j["hip" + side]; foot = j["foot" + side]
+            kneed = _mid(hip, foot)
+            j["knee" + side] = (kneed[0] - (3.0 if not run else 4.5),
+                                kneed[1] + 1.5 + foot[1] * 0.4)
+        j["handL"] = (-10 - sw * 0.8 * math.sin(ph), 31 + 2 * math.sin(ph))
+        j["handR"] = (10 + sw * 0.8 * math.sin(ph), 31 + 2 * math.sin(ph + math.pi))
+        j["elbowL"] = _mid(j["shoulderL"], j["handL"], 0.55)
+        j["elbowR"] = _mid(j["shoulderR"], j["handR"], 0.55)
+        bob = (2.6 if run else 1.4) * abs(math.sin(ph))
+        for k in ("pelvis", "shoulderL", "shoulderR", "hipL", "hipR", "neck",
+                  "elbowL", "elbowR", "handL", "handR"):
+            j[k] = (j[k][0], j[k][1] - bob)
+        if run:
+            for k in ("shoulderL", "shoulderR", "neck"):
+                j[k] = (j[k][0] + 4, j[k][1] - 1)
+    elif pose == "punch":
+        j["elbowR"] = (11, 56)
+        j["handR"] = (23, 57)
+        j["handL"] = (2, 43)
+        j["elbowL"] = (-6, 46)
+        for k in ("shoulderL", "shoulderR", "neck", "pelvis"):
+            j[k] = (j[k][0] + 3, j[k][1])
+        j["footR"] = (10, 0)
+        j["kneeR"] = (6, 14)
+    elif pose == "hurt":
+        j["handL"] = (-15, 60)
+        j["handR"] = (3, 66)
+        j["elbowL"] = (-12, 52)
+        j["elbowR"] = (6, 58)
+        for k in ("shoulderL", "shoulderR", "neck"):
+            j[k] = (j[k][0] - 4, j[k][1] + (2 if k == "neck" else 0))
+        j["footR"] = (11, 0)
+        j["kneeR"] = (8, 13)
+    elif pose == "point":
+        j["handR"] = (15, 64)
+        j["elbowR"] = (11, 59)
+    elif pose == "guard":
+        j["handL"] = (4, 50)
+        j["handR"] = (0, 52)
+        j["elbowL"] = (-11, 45)
+        j["elbowR"] = (11, 46)
+    else:  # idle: andning
+        b = math.sin(t * 2.0) * 0.8
+        for k in ("shoulderL", "shoulderR", "neck"):
+            j[k] = (j[k][0], j[k][1] - b)
+    return j
+
+
+class Suit:
+    """Outfit-färger per person."""
+    def __init__(self, jacket, pants, boots, skin, outl=(18, 16, 24)):
+        self.jacket, self.pants, self.boots, self.skin, self.outl = \
+            jacket, pants, boots, skin, outl
+
+
+def _dk(c, f=0.62):
+    return tuple(int(v * f) for v in c[:3])
+
+
+def draw_body(img, suit, j, scale=1.0):
+    """Ritar kapsel-kroppen i en 56x92-canvas. Bakre->främre."""
+    d = ImageDraw.Draw(img)
+    ox, oy = BODY_CV_W // 2, GROUND_CV
+
+    def P(name):
+        x, y = j[name]
+        return (ox + int(x * scale), oy - int(y * scale))
+
+    out = suit.outl
+    shL, shR = P("shoulderL"), P("shoulderR")
+    hipL, hipR = P("hipL"), P("hipR")
+    knL, knR = P("kneeL"), P("kneeR")
+    ftL, ftR = P("footL"), P("footR")
+    # ben: bakre (vänster) mörkare
+    for (hip, kn, ft, colp) in ((hipL, knL, ftL, _dk(suit.pants)),
+                                (hipR, knR, ftR, suit.pants)):
+        _cap(d, hip, kn, colp, int(JW * scale), out)
+        _cap(d, kn, ft, colp, int(JW2 * scale), out)
+        # boot: box + tå
+        bx, by = ft
+        d.rectangle([bx - 3, by - 5, bx + 4, by], fill=out)
+        d.rectangle([bx - 2, by - 4, bx + 3, by - 1], fill=suit.boots)
+        d.rectangle([bx + 3, by - 4, bx + 6 + (1 if ft is ftR else 0), by - 2], fill=suit.boots)
+        d.line([(bx + 3, by - 3), (bx + 6, by - 2)], fill=out)
+    # bälte/bäcken
+    d.ellipse([P("pelvis")[0] - 8, P("pelvis")[1] - 4, P("pelvis")[0] + 8, P("pelvis")[1] + 4],
+              fill=suit.pants)
+    # torso (kapsel-axlar + kapsel-kropp)
+    _cap(d, hipL, hipR, suit.jacket, int(9 * scale), out)
+    _cap(d, shL, shR, suit.jacket, int(8 * scale), out)
+    _cap(d, P("pelvis"), P("neck"), suit.jacket, int(11 * scale), out)
+    # krage + dragkedja
+    nx, ny = P("neck")
+    d.polygon([(nx - 5, ny + 2), (nx, ny - 3), (nx + 5, ny + 2)], fill=_dk(suit.jacket, 0.8))
+    d.line([(nx, ny + 2), (nx, P("pelvis")[1] + 2)], fill=_dk(suit.jacket, 0.7))
+    # armar: bakre (vänster) före torso-arm-konflikt: rita bakre arm FÖRE torso? enkelt: båda efter
+    for (sh, el, hd, cols_) in ((shL, P("elbowL"), P("handL"), _dk(suit.jacket)),
+                                (shR, P("elbowR"), P("handR"), suit.jacket)):
+        _cap(d, sh, el, cols_, int(5 * scale), out)
+        _cap(d, el, hd, cols_, int(4 * scale), out)
+        hx, hy = hd
+        d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], fill=suit.skin)
+        d.rectangle([hx - 2, hy - 2, hx + 2, hy + 2], outline=out)
+
+
+# ---------------------------------------------------------------------------
+# ANIMEHUVUD 26x24 – ansiktsupplägg ritas dynamiskt per frame
+# ---------------------------------------------------------------------------
+def _base_head(skin, out):
+    h = Image.new("RGBA", (26, 24), (0, 0, 0, 0))
+    d = ImageDraw.Draw(h)
+    # käke/face-silhuett (spetsig anime-haka)
+    d.polygon([(13, 23), (6, 19), (3, 13), (3, 6), (23, 6), (23, 13), (20, 19)],
+              fill=skin)
+    return h
+
+
+def _hair(d, style, col, out):
+    if style == "spiky":
+        d.polygon([(1, 9), (3, 1), (6, 5), (9, 0), (12, 4), (15, -1), (18, 4),
+                   (22, 1), (25, 8), (25, 3), (13, -2), (1, 3)], fill=col)
+        d.polygon([(2, 9), (4, 6), (7, 9), (9, 7), (13, 10), (17, 7), (20, 9), (24, 7),
+                   (24, 3), (2, 3)], fill=col)
+    elif style == "long":
+        d.polygon([(0, 10), (3, 0), (13, -2), (23, 0), (26, 10), (24, 8), (22, 4),
+                   (13, 1), (4, 4), (2, 8)], fill=col)
+        d.polygon([(0, 10), (3, 6), (3, 22), (1, 20)], fill=col)          # vänster lock
+        d.polygon([(26, 10), (23, 6), (22, 22), (25, 20)], fill=col)      # höger lock
+    elif style == "pony":
+        d.polygon([(1, 9), (3, 0), (13, -2), (23, 0), (25, 9), (22, 5), (13, 2),
+                   (4, 5)], fill=col)
+        d.polygon([(0, 4), (-4, 10), (-2, 20), (1, 16), (2, 9)], fill=_dk(col, 0.85))
+        d.polygon([(1, 2), (5, 0), (4, 3)], fill=_dk(col, 0.85))
+    elif style == "hawk":
+        d.polygon([(8, 6), (9, -2), (13, -3), (17, -2), (18, 6), (15, 2), (11, 2)], fill=col)
+
+
+def make_head_images(cols, hair_style, iris):
+    """Returnerar {eyes_state: sedd huvud-RGBA} för munnar monteras dynamiskt."""
+    skin, out = cols["S"], cols["K"]
+    base = _base_head(skin, out)
+    h2 = base.copy()
+    d = ImageDraw.Draw(h2)
+    _hair(d, hair_style, cols["H"], out)
+    heads = {}
+    eye_lash = out
+    for state in ("normal", "blink", "wide", "angry", "x", "spark", "sad"):
+        im = base.copy()
+        d2 = ImageDraw.Draw(im)
+        _hair(d2, hair_style, _dk(cols["H"]), out)   # fel färg? fix nedan igen
+        heads[state] = im
+    # korrekt hår ovanpå: bygg om i ordning
+    heads = {}
+    for state in ("normal", "blink", "wide", "angry", "x", "spark", "sad"):
+        im = _base_head(skin, out)
+        d = ImageDraw.Draw(im)
+        _hair(d, hair_style, cols["H"], out)            # HÅRET! (tidigare glömt = flint)
+        # ---- ögon ----
+        def eye(cx, big=0):
+            rw = 3 + big; rh = 4 + big
+            if state == "blink":
+                d.line([(cx - 2, 13), (cx + 1, 13)], fill=out, width=1)
+            elif state == "x":
+                d.line([(cx - 2, 11), (cx + 1, 15)], fill=out)
+                d.line([(cx + 1, 11), (cx - 2, 15)], fill=out)
+            elif state == "spark":
+                for dx, dy in ((0, 11), (-2, 13), (1, 13), (0, 15)):
+                    d.point((cx + dx, 13 + dy - 2), fill=(255, 255, 255, 255))
+            else:
+                y0 = 11 - big // 2
+                d.rectangle([cx - 2, y0, cx + 1, y0 + rh], fill=(255, 255, 255, 255))
+                if state == "angry":
+                    d.rectangle([cx - 2, y0, cx + 1, y0 + 1], fill=out)   # smalare
+                    d.rectangle([cx - 1, y0 + 2, cx, y0 + rh - 1], fill=iris + (255,))
+                    d.point((cx, y0 + 1), fill=(255, 255, 255, 255))
+                else:
+                    d.rectangle([cx - 1, y0 + 1, cx, y0 + rh - 1], fill=iris + (255,))
+                    d.point((cx - 1, y0 + 1), fill=(255, 255, 255, 255))  # glans!
+                d.line([(cx - 2, y0), (cx + 1, y0)], fill=out)            # ögonfrans-linje
+        eye(8); eye(16, big=1 if state == "wide" else 0)
+        # ---- bryn ----
+        if state == "angry":
+            d.line([(5, 10), (10, 11)], fill=out)
+            d.line([(19, 10), (14, 11)], fill=out)
+        elif state == "sad":
+            d.line([(5, 11), (10, 10)], fill=out)
+            d.line([(19, 11), (14, 10)], fill=out)
+        d.point((12, 15), fill=_dk(skin, 0.72))                            # näsa
+        heads[state] = im
+
+    def with_mouth(im, mouth):
+        out_im = im.copy()
+        d = ImageDraw.Draw(out_im)
+        mc, lips = (30, 18, 24, 255), _dk(skin, 0.8)
+        if mouth == "open":
+            d.rectangle([11, 17, 14, 19], fill=mc)
+            d.point((12, 17), fill=(200, 90, 90, 255))
+        elif mouth == "grin":
+            d.rectangle([10, 17, 15, 18], fill=(255, 255, 255, 255))
+            d.rectangle([10, 19, 15, 19], fill=mc)
+        elif mouth == "shout":
+            d.rectangle([10, 16, 15, 20], fill=mc)
+            d.rectangle([10, 16, 15, 17], fill=(255, 255, 255, 255))
+        elif mouth == "frown":
+            d.line([(10, 19), (15, 18)], fill=out)
+            d.point((10, 20), fill=out)
+        else:
+            d.line([(11, 18), (14, 18)], fill=_dk(skin, 0.6))
+        return out_im
+
+    return heads, with_mouth
+
+
+class AnimeChar:
+    """Skelett-animehjälte. draw() renderar kropp+huvud som EN bild (cachad)."""
+
+    def __init__(self, name, palette, hair="spiky", iris=(200, 120, 40),
+                 suit=None, scale=1.0, voice_pitch="ren"):
+        self.name = name
+        self.scale = scale
+        self.voice_pitch = voice_pitch
+        self.suit = suit or Suit(jacket=palette.get("T", (50, 60, 120)),
+                                 pants=palette.get("P", (50, 50, 60)),
+                                 boots=palette.get("B", (60, 45, 35)),
+                                 skin=palette["S"])
+        self.heads, self._with_mouth = make_head_images(palette, hair, iris)
+        self._cache = {}
+        self.hair_style = hair
+        self.dark = palette.get("__dark__", False)
+
+    def full(self, pose, t, eyes="normal", mouth="closed", bruise=False):
+        key = (pose, round(t * (6.0 if pose in ("walk", "run") else 2.0), 2),
+               eyes, mouth, bruise)
+        if key in self._cache:
+            return self._cache[key]
+        img = Image.new("RGBA", (BODY_CV_W, BODY_CV_H), (0, 0, 0, 0))
+        j = joints_for("walk" if pose == "mov" else pose,
+                       t if pose in ("walk", "run", "idle", "mov") else 0.0)
+        draw_body(img, self.suit, j, scale=1.0)
+        # huvud: neck-led (0,56) -> huvudets nederdel ditsätts
+        head = self.heads.get(eyes, self.heads["normal"])
+        head = self._with_mouth(head, mouth)
+        if bruise:
+            hd = ImageDraw.Draw(head)
+            hd.point((20, 16), fill=(235, 90, 90, 255))
+            hd.point((20, 17), fill=(235, 90, 90, 255))
+        nx = BODY_CV_W // 2 + int(j["neck"][0])
+        ny = GROUND_CV - int(j["neck"][1])
+        img.alpha_composite(head, (nx - 13, ny - 21))
+        if self.scale != 1.0:
+            img = img.resize((int(BODY_CV_W * self.scale), int(BODY_CV_H * self.scale)), NEAREST)
+        self._cache[key] = img
+        return img
+
+    def bust(self, eyes="angry", mouth="grin"):
+        """Bröstbild för cut-in/kort – huvud + axelparti, ~120x120 innan skalning."""
+        head = self._with_mouth(self.heads.get(eyes, self.heads["normal"]), mouth)
+        b = Image.new("RGBA", (30, 30), (0, 0, 0, 0))
+        d = ImageDraw.Draw(b)
+        # axlar/jacka (ser ut som en anime-byst)
+        out = self.suit.outl
+        d.polygon([(2, 29), (4, 22), (10, 20), (20, 20), (26, 22), (28, 29)],
+                  fill=self.suit.jacket)
+        d.polygon([(2, 29), (4, 22), (10, 20), (20, 20), (26, 22), (28, 29)],
+                  outline=out)
+        d.rectangle([12, 21, 13, 29], fill=_dk(self.suit.jacket, 0.7))
+        d.rectangle([12, 17, 13, 21], fill=self.suit.skin)
+        b.alpha_composite(head, (2, 0))
+        return b
+
+    def get_bust_scaled(self, eyes, mouth, n):
+        return self.bust(eyes, mouth).resize((30 * n, 30 * n), NEAREST)
+
+
+def cutin(img, char, t_since, side, name, chip_col):
+    """Närbilds-insättning vid replik: dämpad scen + strålvifte + stor byst."""
+    ov = Image.new("RGBA", img.size, (6, 8, 18, 150))
+    img.alpha_composite(ov)
+    d = ImageDraw.Draw(img, "RGBA")
+    cw, ch2 = img.size
+    cx = cw - 240 if side else 240
+    for i in range(14):
+        a = i * math.pi / 14 + math.pi / 24
+        col = tuple(min(255, c + 46) for c in chip_col[:3]) + (58,)
+        d.polygon([(cx, ch2), (cx + int(math.cos(a - 0.02) * 900), 0),
+                   (cx + int(math.cos(a + 0.02) * 900), 0)], fill=col)
+    slide = int(max(0.0, (0.14 - t_since)) * 900)
+    bust = char.get_bust_scaled("angry", "grin", 9)
+    if not side:
+        from PIL import ImageOps as _IO
+        bust = _IO.mirror(bust)
+    bx = img.width - bust.width - 80 + slide if side else 80 - slide
+    img.alpha_composite(bust, (bx, img.height - bust.height - 46))
+    nm = ptext(name.upper(), scale=4, col=(255, 255, 255))
+    bar = Image.new("RGBA", (nm.width + 26, nm.height + 14), tuple(chip_col[:3]) + (255,))
+    bar.alpha_composite(nm, (13, 7))
+    tx = img.width - bar.width - 80 if side else 80
+    img.alpha_composite(bar, (tx, img.height - bar.height - 46))
     return img
