@@ -285,6 +285,38 @@ The v6 complaint "they just stand there" led to full scene direction:
 Rule of thumb for future features: VARIETY BEATS COMPLEXITY. Ten smooth
 entrance variants beat one fancy idle loop nobody re-watches.
 
+## 9c. v8 – The SAKUGA lab (anime retention, applied to pixels)
+
+Research applied (see sources: sakuga analyses, impact-frame guides,
+Dan Da Dan frame studies):
+
+* **Impact frames** – `{"kind":"impactflash","at":t}`: 1 frame INVERTED
+  colors + 1 frame white. Perception stutter = the brain reads "massive
+  energy" without a single extra drawing. Visual economy, maximum punch.
+* **Holds** – `{"kind":"hold","at":t,"len":0.28}`: `Scene.frame` freezes
+  ALL animation for ~7 frames right before impact. The pause is what makes
+  the hit feel heavy (anime's 3-frame holds, Dan Da Dan pattern).
+* **Speed lines** – `{"kind":"speedlines","mode":"horiz"|"ring",...}`:
+  drifting streaks behind group-runs, radial lines around impacts. Motion
+  sells without animating motion.
+* **Kiai burst wedges** – `{"kind":"burst",...}`: radiating triangles
+  spinning out from the contact point.
+* **Smear frames** – stretched 1.55x sprite during hit lunge.
+* **Afterimages** – two fading ghost copies trailing every runner
+  (Kanada-style extreme motion reading).
+* **The BEAM** – `fire` is now a 2.2 s ceremony: CHARGE (rising aura
+  particles + ground ring + mouth core) → full-width flickering 3-layer
+  BEAM with sparks → smoke dissipation. Sound matched in `_loop_sfx`.
+* **Letterbox** `{"kind":"letterbox","h":13-15}` on mystery + finale, plus
+  `{"kind":"dutch","angle":-5}` tilt on cliffhangers.
+
+Camera op pipeline (engine `_apply_camera`, in order): zoom push/punch →
+shake offset → burst → speedlines → impactflash → dutch → letterbox last.
+
+Degradation rule: sakuga cues are only booked on beats that earn them
+(build_beats `impact` / group-run / mystery / final scene). If everything
+is intense, nothing is.
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's

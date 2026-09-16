@@ -202,8 +202,10 @@ def _loop_sfx(act, dur, phase=0.0):
     elif act == "fire":
         k = phase
         while k < dur:
-            put(k, sfxmod.flame(), 0.45)
-            k += 1.3
+            put(k, sfxmod.thud(), 0.32)          # laddningens dån
+            put(k + 0.60, sfxmod.flame(), 0.50)  # BEAM!
+            put(k + 1.30, sfxmod.flame(), 0.30)  # efter-dånet
+            k += 2.2
     elif act == "shock":
         k = phase
         while k < dur:
@@ -257,7 +259,7 @@ def build_beats(text, acts, cast, dur):
         beats = {att: [seg(0.0, t_ev, "run", move="enter_l"),
                        seg(t_ev, t_ev + 2.0, acts[att]),
                        seg(t_ev + 2.0, None, None)]}
-        impact = t_ev + 0.45
+        impact = t_ev + (0.95 if acts[att] == "fire" else 0.45)
         for o in [n for n in cast if n != att]:
             ra = acts.get(o)
             ra = ra if ra in ("duck", "shock", "fall") else \
@@ -280,16 +282,30 @@ def build_beats(text, acts, cast, dur):
     return beats, None
 
 
-def cam_plan(i, n_scenes, dur, impact, mystery):
-    """Kameraplan: punch+shake på träff, push på mysterium & cliffhanger."""
+CHAR_X_MID = 82 + 52 + 14   # mitt emellan duo-aktörer (impact-fokus)
+
+
+def cam_plan(i, n_scenes, dur, impact, mystery, a=None):
+    """Kameraplan: sakuga-slajdar alla gags med holds/flash/burst/lines."""
     plan = []
+    both_run = a and all(x == "run" for x in a.values())
     if impact is not None:
-        plan.append({"kind": "punch", "at": max(0.35, impact - 1.0), "z": 0.40, "hold": 2.2})
-        plan.append({"kind": "shake", "at": impact, "amp": 4})
+        plan.append({"kind": "punch", "at": max(0.35, impact - 1.05), "z": 0.42, "hold": 2.4, "focus": (150, 108)})
+        plan.append({"kind": "hold", "at": max(0.6, impact - 0.28), "len": 0.28})
+        plan.append({"kind": "impactflash", "at": impact})
+        plan.append({"kind": "burst", "at": impact, "dur": 0.75, "focus": (CHAR_X_MID, 92)})
+        plan.append({"kind": "speedlines", "t0": impact - 0.9, "t1": impact + 0.9,
+                     "mode": "ring", "focus": (CHAR_X_MID, 92)})
+        plan.append({"kind": "shake", "at": impact, "amp": 5})
+    elif both_run:
+        plan.append({"kind": "speedlines", "t0": 0.5, "t1": max(2.5, dur - 0.5), "mode": "horiz"})
     if mystery:
         plan.append({"kind": "push", "dur": dur, "z": 0.20, "focus": (272, 102)})
+        plan.append({"kind": "letterbox"})
     if i == n_scenes - 1:
         plan.append({"kind": "push", "dur": dur, "z": 0.26})
+        plan.append({"kind": "letterbox", "h": 15})
+        plan.append({"kind": "dutch", "angle": -5})
     return plan
 
 
@@ -376,7 +392,7 @@ def main():
         scene_actions.append(acts)
         beats, impact = build_beats(s["text"], acts, cast, durs[i])
         scene_beats.append(beats)
-        plan = cam_plan(i, len(scenes), durs[i], impact, s.get("mystery"))
+        plan = cam_plan(i, len(scenes), durs[i], impact, s.get("mystery"), a=acts)
         scene_objs.append(engine.Scene(
             s["setting"], seed * 97 + i,
             actors=[(chars[n], beats[n]) for n in cast],

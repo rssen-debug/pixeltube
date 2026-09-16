@@ -12,7 +12,7 @@ import hashlib
 import math
 import random
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 W, H = 320, 180
 GROUND_Y = 150
@@ -1221,6 +1221,13 @@ class Scene:
                 return s
         return segs[-1]
 
+    def _ghost(self, spr, f):
+        # Genomskinlig efterbild av en sprite (anime-afterimage)
+        g = spr.copy()
+        a = g.getchannel("A").point(lambda v: int(v * f))
+        g.putalpha(a)
+        return g
+
     def _move_pos(self, move, i, p, ch):
         """Ger (x, riktning, fortfarande-på-väg?) under ett move-segment."""
         base_x = CHAR_X + i * ACTOR_GAP
@@ -1347,6 +1354,17 @@ class Scene:
 
             px = x + xoff + (ch.w - spr.width) // 2
             py = feet - spr.height
+            if act == "run":                    # KANADA-EFTERBILDER vid fartspridning
+                img.paste(self._ghost(spr, 0.35), (px - dirn * 14, py), self._ghost(spr, 0.35))
+                img.paste(self._ghost(spr, 0.20), (px - dirn * 26, py), self._ghost(spr, 0.20))
+            if act == "hit" and 0.05 < ((tt % 0.9) / 0.9) < 0.30:   # smear-frame!
+                sm = spr.resize((int(spr.width * 1.55) if dirn > 0 else spr.width, spr.height), NEAREST)
+                if dirn < 0:
+                    sm = sm.resize((spr.width, spr.height), NEAREST).transpose(Image.FLIP_LEFT_RIGHT)
+                    sm = sm.resize((int(spr.width * 1.55), spr.height), NEAREST).transpose(Image.FLIP_LEFT_RIGHT)
+                else:
+                    sm = spr.resize((int(spr.width * 1.55), spr.height), NEAREST)
+                img.paste(self._ghost(sm, 0.45), (px - dirn * 9, py), self._ghost(sm, 0.45))
             img.paste(spr, (px, py), spr)
             if lunge > 6:
                 pwx = px - self.pow.width - 2 if dirn < 0 else px + spr.width + 2
@@ -1364,14 +1382,45 @@ class Scene:
                 img.paste(self.anger_img, (head_xc - 8, max(1, py - self.anger_img.height)),
                           self.anger_img)
             elif act == "fire":
-                ph2 = (tt % 1.3) / 1.3
-                r2 = 5 + int(24 * ph2)
-                fx = mouth_x + dirn * (r2 // 2 + 1)
-                fy = head_y + int(2 * math.sin(ph2 * 6.28))
-                for rr, cf in ((r2 + 4, (255, 120, 40, 80)), (r2, (255, 92, 36, 160)),
-                               (max(2, r2 * 2 // 3), (255, 175, 70, 205)),
-                               (max(1, r2 // 3), (255, 240, 170, 230))):
-                    d.ellipse([fx - rr, fy - rr * 2 // 3, fx + rr, fy + rr * 2 // 3], fill=cf)
+                # SAKUGA-BEAM: laddning (aura+ring) -> full stråle över skärmen -> rök
+                cyc = (tt % 2.2) / 2.2
+                fy = head_y + int(1.5 * math.sin(tt * 11))
+                if cyc < 0.27:                          # CHARGE: aura-pulver stiger
+                    chp = cyc / 0.27
+                    for k in range(7):                  # stigande aura-partiklar
+                        ax = head_xc + int(8 * math.sin(tt * 6 + k * 0.9))
+                        ay = int(feet - ((tt * 34 + k * 9) % 30))
+                        d.rectangle([ax - 1, ay - 2, ax, ay], fill=(255, 190 - k * 12, 60, 190))
+                    ring = int(4 + 3 * math.sin(tt * 14))       # pulserande ring
+                    d.ellipse([x - 4 - ring, GROUND_Y - 1, x + ch.w + 4 + ring, GROUND_Y + 4],
+                              outline=(255, 170, 60, 160))
+                    rb = 3 + int(7 * chp)                     # liten växande kärna i munnen
+                    d.ellipse([mouth_x - rb, fy - rb, mouth_x + rb, fy + rb],
+                              fill=(255, 238, 170, 235))
+                elif cyc < 0.74:                        # BEAM! full-bredd flicker-stråle
+                    bp = (cyc - 0.27) / 0.47
+                    hgt = max(2, 5 + int(4 * math.sin(tt * 43) + 3 * math.sin(tt * 27)))
+                    edge = W if dirn > 0 else -1
+                    # glöd, kropp, kärna (3 lager)
+                    d.rectangle([min(mouth_x, edge), fy - hgt - 4, max(mouth_x, edge), fy + hgt + 4],
+                                fill=(255, 120, 40, 70))
+                    d.rectangle([min(mouth_x, edge), fy - hgt, max(mouth_x, edge), fy + hgt],
+                                fill=(255, 150, 55, 200))
+                    d.rectangle([min(mouth_x, edge), fy - max(2, hgt // 2), max(mouth_x, edge),
+                                 fy + max(2, hgt // 2)], fill=(255, 244, 190, 240))
+                    rb = 10 + int(3 * math.sin(tt * 31))          # energikula i munnen
+                    for rr, cf in ((rb + 5, (255, 120, 40, 90)), (rb, (255, 180, 70, 210)),
+                                   (rb // 2, (255, 248, 190, 240))):
+                        d.ellipse([mouth_x - rb, fy - rb, mouth_x + rb, fy + rb], fill=cf)
+                    for k in range(5):                           # gnistor vid strålen
+                        yy2 = fy + int((hgt + 8) * math.sin(tt * 17 + k * 1.3))
+                        xx2 = int(((tt * 220 + k * 47) % (W - 20))) + 10
+                        d.point((xx2, yy2), fill=(255, 235, 150, 220))
+                else:                                            # röksättning
+                    for k in range(3):
+                        ry = fy - int((tt * 8 + k * 5) % 14)
+                        rx = mouth_x + dirn * (6 + k * 4)
+                        d.ellipse([rx - 3, ry - 2, rx + 3, ry + 2], fill=(160, 160, 172, 90))
             elif act == "shock":
                 c2 = (tt % 1.2) / 1.2
                 if 0.1 < c2 < 0.75:
@@ -1444,6 +1493,70 @@ class Scene:
             base = Image.new("RGB", (W, H), (0, 0, 0))
             base.paste(img, (dx, dy))
             img = base
+
+        # ============ SAKUGA POST-FX ============
+        d2 = ImageDraw.Draw(img, "RGBA")
+        for op in self.cam:
+            k = op.get("kind")
+            if k == "burst":                     # radiator-wedges bakom träff-ögonblicket
+                at = op.get("at", 1.0); ddz = op.get("dur", 0.7)
+                if at <= t < at + ddz:
+                    q = (t - at) / ddz
+                    fx, fy = op.get("focus", (170, 90))
+                    rng2 = random.Random(int(at * 977))
+                    n2 = 14
+                    for wdg in range(n2):
+                        a0 = (wdg / n2) * 6.283 + q * 0.6
+                        col = (255, 240, 150, 120) if wdg % 2 == 0 else (255, 90, 60, 120)
+                        R = 260
+                        p1 = (fx + int(math.cos(a0 - 0.06) * 14), fy + int(math.sin(a0 - 0.06) * 14))
+                        p2 = (fx + int(math.cos(a0 + 0.06) * 14), fy + int(math.sin(a0 + 0.06) * 14))
+                        p3 = (fx + int(math.cos(a0 + 0.11 * (1 - q)) * R), fy + int(math.sin(a0 + 0.11 * (1 - q)) * R))
+                        p4 = (fx + int(math.cos(a0 - 0.11 * (1 - q)) * R), fy + int(math.sin(a0 - 0.11 * (1 - q)) * R))
+                        d2.polygon([p1, p2, p3, p4], fill=col)
+            elif k == "speedlines":              # speed lines: horiz (rusch) / ring (impact)
+                t0, t1 = op.get("t0", 0.0), op.get("t1", self.dur)
+                if t0 <= t < t1:
+                    mode = op.get("mode", "horiz")
+                    rng3 = random.Random(int(t0 * 131 + (97 if int(t * 12) % 2 else 0)) + 11)
+                    if mode == "horiz":
+                        for _ in range(9):
+                            yy3 = rng3.randint(18, GROUND_Y - 8)
+                            L = rng3.randint(30, 90)
+                            drift = int((t * 260) % (W + L)) - L
+                            if rng3.random() < 0.55:
+                                yy3 = GROUND_Y - 8 - yy3 % (GROUND_Y - 30)
+                            d2.line([(drift, yy3), (min(W, drift + L), yy3)],
+                                    fill=(255, 255, 255, 70), width=1)
+                    else:
+                        fx, fy = op.get("focus", (170, 92))
+                        for wdg in range(22):
+                            a0 = wdg / 22 * 6.283
+                            r_in = 46 + (wdg % 5) * 7
+                            r_out = r_in + 30 + (wdg % 3) * 15
+                            d2.line([(fx + int(math.cos(a0) * r_in), fy + int(math.sin(a0) * r_in)),
+                                     (fx + int(math.cos(a0) * r_out), fy + int(math.sin(a0) * r_out))],
+                                    fill=(255, 255, 255, 110), width=1)
+            elif k == "impactflash":             # IMPACT FRAME: invert -> vitt (1-2 frames)
+                at = op.get("at", 1.0)
+                if at <= t < at + 0.083:
+                    img = ImageOps.invert(img.convert("RGB"))
+                    d2 = ImageDraw.Draw(img, "RGBA")
+                elif at + 0.083 <= t < at + 0.167:
+                    img.paste((255, 250, 235), [0, 0, W, H])
+                    d2 = ImageDraw.Draw(img, "RGBA")
+            elif k == "dutch":                   # snett kaos-perspektiv
+                img = img.rotate(op.get("angle", -5), resample=NEAREST,
+                                 expand=False, fillcolor=(0, 0, 0))
+                d2 = ImageDraw.Draw(img, "RGBA")
+        # letterbox SIST (breven ovanpå allt)
+        bars = None
+        for op in self.cam:
+            if op.get("kind") == "letterbox":
+                bars = op.get("h", 13)
+        if bars:
+            d2.rectangle([0, 0, W, bars], fill=(0, 0, 0))
+            d2.rectangle([0, H - bars, W, H], fill=(0, 0, 0))
         return img
 
     def _draw_particles(self, img, t):
@@ -1484,7 +1597,17 @@ class Scene:
                        (170, 235, 255)][int(t * 2 + p["ph"]) % 4]
                 d.point((x, y), fill=col)
 
+    def _freeze_t(self, t):
+        """Anime-hold: under ett 'hold'-op fryses ALL animation på rutan."""
+        for op in self.cam:
+            if op.get("kind") == "hold":
+                at = op.get("at", 1.0)
+                if at <= t < at + op.get("len", 0.28):
+                    return at
+        return t
+
     def frame(self, t):
+        t = self._freeze_t(t)
         img = self.sky.copy()
         self._draw_stars(img, t)
         if self.rays is not None:
