@@ -389,6 +389,8 @@ class Character:
                     img = _sprite_image(rows_, cols, blink=blink)
                     frames[tag + suf] = img.resize(
                         (img.width * CHAR_SCALE, img.height * CHAR_SCALE), NEAREST)
+                    frames[tag + suf + "f"] = frames[tag + suf].transpose(
+                        Image.FLIP_LEFT_RIGHT)
             _FRAME_CACHE[cache_key] = frames
         self.frames = _FRAME_CACHE[cache_key]
         self.w = self.frames["A"].width
@@ -876,16 +878,23 @@ class Scene:
     """En levande pixelscen. actors = [(Character, action|None), ...] (max 3)."""
 
     def __init__(self, setting="forest", seed=0, actors=None, text=None,
-                 props=None, reaction=None, mystery=None):
+                 props=None, reaction=None, mystery=None, cam=None, dur=10.0):
         self.setting = setting if setting in SCHEMES else "forest"
         self.rng = random.Random(seed)
         self.pal = SCHEMES[self.setting]
+        self.cam = cam or []
+        self.dur = dur
         if not actors:
             actors = [(Character("leo"), None)]
         self.actors = []
         for a in actors[:3]:
-            ch, act = (a if isinstance(a, tuple) else (a, None))
-            self.actors.append((ch, act if act in ACTIONS else None))
+            ch, spec = (a if isinstance(a, tuple) else (a, None))
+            if isinstance(spec, list):            # v7: beatsegment
+                segs = spec
+            else:
+                act = spec if spec in ACTIONS else None
+                segs = [{"t0": 0.0, "t1": None, "act": act}]
+            self.actors.append((ch, segs))
         self.reaction = reaction if reaction in REACTIONS else None
         self.mystery_wanted = mystery
 
@@ -1199,18 +1208,54 @@ class Scene:
             y = int(fl["y"] + 4 * math.sin(t * 0.9 + fl["ph"]))
             img.paste(im, (x, y), im)
 
+    # -- v7: blocking, fysik & regi ------------------------------------------
+    @staticmethod
+    def _ease(x):
+        x = max(0.0, min(1.0, x))
+        return x * x * (3 - 2 * x)
+
+    def _seg_for(self, segs, t):
+        for s in segs:
+            t1 = s.get("t1")
+            if s["t0"] <= t < (self.dur + 1 if t1 is None else t1):
+                return s
+        return segs[-1]
+
+    def _move_pos(self, move, i, p, ch):
+        """Ger (x, riktning, fortfarande-på-väg?) under ett move-segment."""
+        base_x = CHAR_X + i * ACTOR_GAP
+        if move == "enter_l":
+            e_ = self._ease(p)
+            return int((-ch.w - 12) + (base_x + ch.w + 12) * e_), 1, p < 0.985
+        if move == "enter_r":
+            e_ = self._ease(p)
+            return int((W + 12) - (W + 12 - base_x) * e_), -1, p < 0.985
+        return base_x, 0, False
+
     def _draw_actors(self, img, t):
         d = ImageDraw.Draw(img, "RGBA")
-        for i, (ch, act) in enumerate(self.actors):
-            tt = t + i * 0.31
-            x = CHAR_X + i * ACTOR_GAP
+        for i, (ch, segs) in enumerate(self.actors):
+            seg = self._seg_for(segs, t)
+            act = seg.get("act") if seg.get("act") in ACTIONS else None
+            move = seg.get("move")
+            t1 = seg.get("t1")
+            span = max(0.05, (min(self.dur, t1) if t1 is not None else self.dur) - seg["t0"])
+            p = min(1.0, max(0.0, (t - seg["t0"]) / span))
+            tt = (t - seg["t0"]) + i * 0.31
+
+            x, dirn, en_route = self._move_pos(move, i, p, ch)
+            if not dirn:
+                dirn = seg.get("face") or (-1 if i >= 1 else 1)
+            if en_route and act in (None, "walk", "run"):
+                act = "run"
+
             d.ellipse([x - 6, GROUND_Y - 2, x + ch.w + 6, GROUND_Y + 5], fill=(0, 0, 0, 70))
             speed = 12 if act == "run" else 7
             fr = "A" if int(tt * speed) % 2 == 0 else "B"
             if act == "sleep":
                 fr = "A"
             blink = act != "sleep" and (tt % 3.7) < 0.12
-            spr = ch.frames[fr + ("_b" if blink else "")]
+            spr = ch.frames[fr + ("_b" if blink else "") + ("f" if dirn < 0 else "")]
             feet = GROUND_Y + 2 + i
             xoff = 0
             tilt = 0.0
@@ -1218,63 +1263,82 @@ class Scene:
             lunge = 0
 
             if act == "run":
-                tilt = -7.0
+                tilt = -7.0 * dirn
                 feet -= abs(int(2 * math.sin(tt * 12)))
-            elif act == "jump":
+            elif act == "jump":                 # v7-fysik: anticipation -> båge -> squash
                 ph = (tt % 1.15) / 1.15
-                feet -= int(64 * ph * (1 - ph))
+                if ph < 0.26:
+                    squash = 1.0 - 0.18 * math.sin(math.pi * ph / 0.26)
+                elif ph < 0.70:
+                    q = (ph - 0.26) / 0.44
+                    feet -= int(60 * math.sin(math.pi * q))
+                    tilt = -6.0 * dirn * math.sin(math.pi * q)
+                else:
+                    q = (ph - 0.70) / 0.30
+                    squash = 1.0 - 0.15 * math.sin(math.pi * min(1.0, q))
+                    if q < 0.6:
+                        d.ellipse([x - 4, GROUND_Y + 1, x + ch.w + 4, GROUND_Y + 5],
+                                  fill=(0, 0, 0, int(50 * (1 - q))))
             elif act == "dance":
                 feet -= abs(int(3 * math.sin(tt * 9)))
                 xoff = int(3 * math.sin(tt * 4.5))
-                tilt = -10 * math.sin(tt * 4.5)
+                tilt = -10 * dirn * math.sin(tt * 4.5)
             elif act == "spin":
                 tilt = -(tt % 1.0) * 360.0
             elif act == "wave":
-                tilt = 12 * math.sin(tt * 8)
+                tilt = 12 * dirn * math.sin(tt * 8)
                 feet -= abs(int(2 * math.sin(tt * 8)))
-            elif act == "hit":
+            elif act == "hit":                  # v7: drag upp först (wind-up)
                 c = (tt % 0.9) / 0.9
+                if c < 0.10:
+                    xoff -= int(5 * (c / 0.10)) * dirn
                 lunge = int(9 * max(0.0, 1.0 - abs(c - 0.2) / 0.14))
-                xoff += lunge
+                xoff += lunge * dirn
             elif act == "duck":
                 c = (tt % 1.6) / 1.6
                 if c < 0.55:
                     squash = 1.0 - 0.42 * math.sin(math.pi * c / 0.55)
             elif act == "sleep":
-                tilt = 6.0
+                tilt = 6.0 * dirn
                 for k in range(3):
                     rise = (tt * 16 + k * 14) % 42
-                    zy = int(feet - ch.h - 6 - rise)
+                    zy = int(feet - ch.h + ch.h - 6 - rise)
                     if zy > 4:
-                        img.paste(self.zz, (int(x + ch.w - 2 + k * 7 +
-                                                3 * math.sin(tt + k)), zy), self.zz)
-            elif act == "fire":                     # 💨 eld-superkraft!
-                tilt = -9.0
+                        zx = x - 4 - k * 7 if dirn < 0 else x + ch.w - 2 + k * 7
+                        img.paste(self.zz, (int(zx + 3 * math.sin(tt + k)), zy), self.zz)
+            elif act == "fire":
+                tilt = -9.0 * dirn
                 fr = "B" if int(tt * 8) % 2 == 0 else "A"
-            elif act == "shock":                      # 😱 chock-hopp bakåt
+                spr = ch.frames[fr + ("f" if dirn < 0 else "")]
+            elif act == "shock":
                 c = (tt % 1.2) / 1.2
                 pop_ = math.sin(c * math.pi)
-                xoff -= int(8 * pop_)
+                xoff -= int(8 * pop_) * dirn
                 feet -= int(6 * pop_)
                 squash = 1.0 + 0.15 * pop_
-            elif act == "fall":                       # 🤕 faceplant + yrsel
+            elif act == "fall":
                 c = (tt % 1.9) / 1.9
                 if c < 0.22:
                     p2 = c / 0.22
-                    xoff += int(9 * p2)
+                    xoff += int(9 * p2) * dirn
                     feet -= int(5 * math.sin(p2 * math.pi))
-                    tilt = -78.0 * p2 * p2
+                    tilt = -78.0 * p2 * p2 * dirn
                 else:
-                    tilt = -78.0
-            elif act == "flex":                       # 💪 brösta sig + gnistra
+                    tilt = -78.0 * dirn
+            elif act == "flex":
                 bounce = abs(math.sin(tt * 5.0))
                 squash = 1.0 + 0.10 * bounce
-                tilt = -5.0 * math.sin(tt * 5.0)
-            else:  # walk / None
-                if ch.hopping:
+                tilt = -5.0 * dirn * math.sin(tt * 5.0)
+            else:  # walk / idle – PERSONLIGHET i gångarten!
+                if ch.hopping:                      # kanin: skuttar
                     feet -= abs(int(2 * math.sin(tt * 7)))
-                elif fr == "B":
-                    feet -= CHAR_SCALE
+                elif ch.species == "apa":           # apa: hoppig smyg-march
+                    tilt = -4.0 * dirn
+                    feet -= abs(int(2 * math.sin(tt * 9)))
+                else:                               # dino: tungt stamp, axel-gunga
+                    if fr == "B":
+                        feet -= CHAR_SCALE
+                    xoff += int(1.2 * math.sin(tt * 7))
 
             if squash != 1.0:
                 spr = spr.resize((spr.width, max(6, int(spr.height * squash))), NEAREST)
@@ -1285,19 +1349,24 @@ class Scene:
             py = feet - spr.height
             img.paste(spr, (px, py), spr)
             if lunge > 6:
-                img.paste(self.pow, (x + ch.w + 2, int(feet - ch.h * 0.75)), self.pow)
+                pwx = px - self.pow.width - 2 if dirn < 0 else px + spr.width + 2
+                img.paste(self.pow, (pwx, int(feet - ch.h * 0.75)), self.pow)
 
-            # --- humor-overlayar: reagera visuellt, förklara aldrig! ---
-            head_x, head_y = px + spr.width - 4, py + spr.height // 3
+            # --- humor-overlayar (riktningsmedvetna) ---
+            head_xc = px + spr.width // 2
+            head_y = py + spr.height // 3
+            mouth_x = px + (spr.width - 4 if dirn > 0 else 4)
             if act == "dance":
                 ny = max(1, py - self.note_img.height - 2 + int(2 * math.sin(tt * 3)))
-                img.paste(self.note_img, (head_x + int(3 * math.sin(tt * 2.5)), ny), self.note_img)
+                img.paste(self.note_img,
+                          (head_xc + dirn * 4 + int(3 * math.sin(tt * 2.5)), ny), self.note_img)
             elif act == "hit":
-                img.paste(self.anger_img, (head_x - 8, max(1, py - self.anger_img.height)), self.anger_img)
+                img.paste(self.anger_img, (head_xc - 8, max(1, py - self.anger_img.height)),
+                          self.anger_img)
             elif act == "fire":
                 ph2 = (tt % 1.3) / 1.3
                 r2 = 5 + int(24 * ph2)
-                fx = head_x + 2 + r2 // 2
+                fx = mouth_x + dirn * (r2 // 2 + 1)
                 fy = head_y + int(2 * math.sin(ph2 * 6.28))
                 for rr, cf in ((r2 + 4, (255, 120, 40, 80)), (r2, (255, 92, 36, 160)),
                                (max(2, r2 * 2 // 3), (255, 175, 70, 205)),
@@ -1307,29 +1376,75 @@ class Scene:
                 c2 = (tt % 1.2) / 1.2
                 if 0.1 < c2 < 0.75:
                     by2 = max(1, py - self.bang_bubble.height + int(1.5 * math.sin(tt * 20)))
-                    img.paste(self.bang_bubble, (px + spr.width - 2, by2), self.bang_bubble)
+                    bx = px + spr.width - 2 if dirn > 0 else px - self.bang_bubble.width + 2
+                    img.paste(self.bang_bubble, (bx, by2), self.bang_bubble)
                 if c2 > 0.5:
-                    img.paste(self.sweat_img, (px + 1, max(1, head_y - 6)), self.sweat_img)
+                    img.paste(self.sweat_img, (head_xc - dirn * 10, max(1, head_y - 6)),
+                              self.sweat_img)
             elif act == "fall":
                 c2 = (tt % 1.9) / 1.9
                 if c2 >= 0.22:
                     d.ellipse([px - 4, GROUND_Y - 1, px + spr.width + 4, GROUND_Y + 5],
                               fill=(0, 0, 0, 60))
-                    for k in range(3):                # yr-stjärnor i omloppsbana
+                    for k in range(3):
                         a = tt * 5.0 + k * 2.094
-                        sx = int(head_x - 8 + 13 * math.cos(a))
+                        sx = int(head_xc - 8 + 13 * math.cos(a))
                         sy = int(py - 2 + 5 * math.sin(a))
                         d.rectangle([sx, sy, sx + 2, sy + 2], fill=(255, 230, 120, 220))
             elif act == "flex":
                 blink2 = int(tt * 4) % 2 == 0
                 sy2 = max(1, py - self.star_img.height + 2 + int(2 * abs(math.sin(tt * 5))))
-                img.paste(self.star_img, (head_x + (2 if blink2 else 6), sy2), self.star_img)
+                img.paste(self.star_img, (head_xc + dirn * (2 if blink2 else 6), sy2),
+                          self.star_img)
 
         if self.bubble_img and self.actors and 0.55 <= t <= 3.0:
-            ch, _ = self.actors[0]
-            by = max(2, GROUND_Y + 2 - ch.h - self.bubble_img.height - 4 +
+            ch0, _segs0 = self.actors[0]
+            by = max(2, GROUND_Y + 2 - ch0.h - self.bubble_img.height - 4 +
                      int(2 * math.sin(t * 2.2)))
-            img.paste(self.bubble_img, (CHAR_X + ch.w - 6, by), self.bubble_img)
+            img.paste(self.bubble_img, (CHAR_X + ch0.w - 6, by), self.bubble_img)
+
+    # -- v7: kamera -----------------------------------------------------------
+    def _zoom(self, img, z, focus=(160, 96)):
+        if z <= 1.001:
+            return img
+        w0, h0 = max(32, int(W / z)), max(18, int(H / z))
+        fx, fy = focus
+        x0 = max(0, min(W - w0, int(fx - w0 * 0.5)))
+        y0 = max(0, min(H - h0, int(fy - h0 * 0.6)))
+        return img.crop((x0, y0, x0 + w0, y0 + h0)).resize((W, H), NEAREST)
+
+    def _apply_camera(self, img, t):
+        if not self.cam:
+            return img
+        dx = dy = 0
+        for op in self.cam:
+            k = op.get("kind")
+            if k == "push":
+                dd = max(1.0, op.get("dur", self.dur) - 0.2)
+                z = 1.0 + op.get("z", 0.22) * min(1.0, t / dd)
+                img = self._zoom(img, z, op.get("focus", (160, 96)))
+            elif k == "punch":                    # slagzoom på gag-ögonblicket
+                at = op.get("at", 1.0)
+                hold = op.get("hold", 2.4)
+                if t >= at:
+                    rise = min(1.0, (t - at) / 0.22)
+                    rel = fall = 0.0
+                    if t > at + hold:
+                        fall = min(1.0, (t - at - hold) / 0.7)
+                    z = 1.0 + op.get("z", 0.4) * (self._ease(rise) - self._ease(fall))
+                    img = self._zoom(img, max(1.0, z), op.get("focus", (176, 92)))
+            elif k == "shake":
+                at = op.get("at", 1.0)
+                amp = op.get("amp", 4)
+                if at <= t < at + 0.55:
+                    kk = 1 - (t - at) / 0.55
+                    dx += int(amp * kk * math.sin(t * 91))
+                    dy += int(amp * 0.7 * kk * math.cos(t * 83))
+        if dx or dy:
+            base = Image.new("RGB", (W, H), (0, 0, 0))
+            base.paste(img, (dx, dy))
+            img = base
+        return img
 
     def _draw_particles(self, img, t):
         d = ImageDraw.Draw(img)
@@ -1393,4 +1508,4 @@ class Scene:
         self._draw_actors(img, t)
         self._draw_hoppers(img, t)
         self._draw_particles(img, t)
-        return img
+        return self._apply_camera(img, t)

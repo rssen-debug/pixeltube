@@ -256,6 +256,35 @@ python3 make_video.py --seed 77 --story 7 --scale 4 --backend none
 
 ---
 
+## 9b. v7 – The direction system (blocking, physics & camera)
+
+The v6 complaint "they just stand there" led to full scene direction:
+
+* **Beats** – `make_video.build_beats(text, acts, cast, dur)` turns one
+  action per actor into a TIMELINE of segments `{t0, t1, act, move}`.
+  Schema: entrance → gag → reaction → resolve. Actors accept either a
+  plain action string (v6, wrap to one segment) or a segment list.
+* **Entrances** – `move: enter_l/enter_r` slides actors on stage (ease-out,
+  forced run cycle while moving). Default duo staging: actor 0 enters from
+  the left facing right, actor 1 from the right facing LEFT – they meet and
+  face each other (sprites pre-mirrored as `A_f/B_f` frame variants).
+* **Synced cause & effect** – a `hit`/`fire` attacker starts at t=1.1;
+  the victim plays duck/shock/fall starting at impact (t+few frames), even
+  if the script only gave the attacker a verb. THIS is the comedy engine.
+* **Physics** – jump = anticipation squash (0.26) → arc → landing squash +
+  dust. Hit = wind-up pull-back → lunge. Species gaits: dino stomps with
+  shoulder sway, ape scamper-marches hunched, bunny hop-walks.
+* **Camera** – `Scene(cam=[ops])`, applied last in `frame()` so subtitles
+  (drawn later in make_video) stay pinned. Ops:
+  `punch` (fast 1.4× zoom on the gag, hold, ease out), `shake` (±4 px decay
+  at impact), `push` (slow 1.2-1.26× creep – mystery + final cliffhanger).
+  `cam_plan()` in make_video builds them from beats + flags.
+* **SFX beds follow beats** – `_loop_bed(segs...)` loops each segment's
+  action separately inside the scene; phases stay deterministic.
+
+Rule of thumb for future features: VARIETY BEATS COMPLEXITY. Ten smooth
+entrance variants beat one fancy idle loop nobody re-watches.
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's

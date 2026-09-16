@@ -223,6 +223,76 @@ def _loop_sfx(act, dur, phase=0.0):
     return tr
 
 
+def _loop_bed(segs, dur, phase=0.0):
+    """Loopa rörelseljud per beat-segment (v7): varje beat får egen ljudbädd."""
+    sr = musicmod.SR
+    out = np.zeros(max(1, int(dur * sr)), dtype=np.float32)
+    for s in segs or []:
+        t1 = dur if s.get("t1") is None else min(dur, s["t1"])
+        span = t1 - s["t0"]
+        if span <= 0.05:
+            continue
+        clip = _loop_sfx(s.get("act"), span, phase=phase)
+        off = int(s["t0"] * sr)
+        end = min(len(out), off + len(clip))
+        if off < len(out):
+            out[off:end] += clip[: max(0, end - off)]
+    return out
+
+
+def build_beats(text, acts, cast, dur):
+    """REGIN: entréer från kanter, huvudgag med SYNKAD offer-reaktion."""
+
+    def seg(t0, t1, act=None, move=None):
+        d = {"t0": round(max(0.0, t0), 3),
+             "t1": None if t1 is None else round(min(max(t1, t0 + 0.2), dur + 0.4), 3),
+             "act": act}
+        if move:
+            d["move"] = move
+        return d
+
+    att = next((n for n in cast if acts.get(n) in ("hit", "fire")), None)
+    if att:
+        t_ev = 1.1
+        beats = {att: [seg(0.0, t_ev, "run", move="enter_l"),
+                       seg(t_ev, t_ev + 2.0, acts[att]),
+                       seg(t_ev + 2.0, None, None)]}
+        impact = t_ev + 0.45
+        for o in [n for n in cast if n != att]:
+            ra = acts.get(o)
+            ra = ra if ra in ("duck", "shock", "fall") else \
+                ("fall" if acts[att] == "fire" else "shock")
+            beats[o] = [seg(0.0, impact, None, move="enter_r"),
+                        seg(impact, impact + 1.9, ra),
+                        seg(impact + 1.9, None, None)]
+        return beats, impact
+
+    beats = {}
+    for idx, n in enumerate(cast):
+        a = acts.get(n)
+        entr = "enter_l" if idx == 0 else "enter_r"
+        if a == "run" and dur > 2.5:
+            beats[n] = [seg(0.0, 1.15, "run", move=entr), seg(1.15, None, a)]
+        elif a:
+            beats[n] = [seg(0.0, 0.55, None, move=entr), seg(0.55, None, a)]
+        else:
+            beats[n] = [seg(0.0, None, None)]
+    return beats, None
+
+
+def cam_plan(i, n_scenes, dur, impact, mystery):
+    """Kameraplan: punch+shake på träff, push på mysterium & cliffhanger."""
+    plan = []
+    if impact is not None:
+        plan.append({"kind": "punch", "at": max(0.35, impact - 1.0), "z": 0.40, "hold": 2.2})
+        plan.append({"kind": "shake", "at": impact, "amp": 4})
+    if mystery:
+        plan.append({"kind": "push", "dur": dur, "z": 0.20, "focus": (272, 102)})
+    if i == n_scenes - 1:
+        plan.append({"kind": "push", "dur": dur, "z": 0.26})
+    return plan
+
+
 def main():
     ap = argparse.ArgumentParser(description="Skapa ett pixeläventyr som färdig MP4.")
     ap.add_argument("--seed", type=int, default=None)
@@ -293,18 +363,25 @@ def main():
     total = cur
     print(f"   ⏱️  längd: {total:.1f}s")
 
-    # --- 3. Scener + vem gör vad ---
-    scene_objs, scene_actions = [], []
+    # --- 3. Scener + vem gör vad + REGI (v7) ---
+    durs = []
+    for i in range(len(scenes)):
+        durs.append((starts[i + 1] - starts[i]) if i < len(scenes) - 1
+                    else (total - starts[i]))
+    scene_objs, scene_actions, scene_beats = [], [], []
     for i, s in enumerate(scenes):
         acts = storymod.parse_actions(s["text"], cast)
         if s["action"] and not acts.get(cast[0]):
             acts[cast[0]] = s["action"]
         scene_actions.append(acts)
+        beats, impact = build_beats(s["text"], acts, cast, durs[i])
+        scene_beats.append(beats)
+        plan = cam_plan(i, len(scenes), durs[i], impact, s.get("mystery"))
         scene_objs.append(engine.Scene(
             s["setting"], seed * 97 + i,
-            actors=[(chars[n], acts[n]) for n in cast],
+            actors=[(chars[n], beats[n]) for n in cast],
             text=s["text"], props=s["props"], reaction=s["reaction"],
-            mystery=s.get("mystery")))
+            mystery=s.get("mystery"), cam=plan, dur=durs[i]))
     bits = []
     for i, s in enumerate(scenes):
         who = "/".join(f"{disp[n]}:{scene_actions[i][n]}" for n in cast if scene_actions[i][n])
@@ -330,7 +407,7 @@ def main():
         st = starts[i]
         dur_i = (starts[i + 1] - st) if i < len(scenes) - 1 else (total - st)
         for ai, name in enumerate(cast):
-            tr = _loop_sfx(scene_actions[i][name], dur_i, phase=ai * 0.31)
+            tr = _loop_bed(scene_beats[i][name], dur_i, phase=ai * 0.31)
             off = int(st * SR)
             if off + len(tr) <= len(mix):
                 mix[off:off + len(tr)] += tr
