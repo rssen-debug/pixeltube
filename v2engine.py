@@ -467,11 +467,22 @@ class DockNight:
         for _ in range(60):                     # stjärnor
             d.point((self.rng.randrange(W), self.rng.randrange(78)),
                     fill=(220, 225, 255) if self.rng.random() < .5 else (150, 160, 200))
+        # v5 CEL: molnsilhuetter + mån-halo (för ritad anime-natt)
+        for cxc, cyc, cw2 in ((62, 16, 26), (108, 34, 30), (302, 24, 22)):
+            d.ellipse([cxc - cw2, cyc, cxc + cw2, cyc + 9], fill=(15, 22, 50))
+            d.ellipse([cxc - cw2 + 9, cyc - 5, cxc + cw2 - 11, cyc + 5], fill=(15, 22, 50))
+        d.ellipse([232, 0, 296, 52], fill=(17, 27, 60))
+        d.ellipse([240, 4, 288, 48], fill=(22, 34, 70))
         # måne
         d.ellipse([250, 12, 278, 40], fill=(238, 236, 210))
         d.ellipse([258, 16, 282, 38], fill=(10, 14, 34, 0))  # halvmåne-känsla
         # hav
         d.rectangle([0, 96, W, 128], fill=(16, 42, 66))
+        d.line([(0, 96), (W, 96)], fill=(58, 122, 148))            # v5: horisont-glans
+        _rm = random.Random(11)
+        for my in range(99, 125, 5):                                 # v5: månsken-pendel i sjön
+            mw = _rm.randrange(5, 13)
+            d.line([(264 - mw // 2, my), (264 + mw // 2, my)], fill=(110, 165, 185))
         for _ in range(160):
             x = self.rng.randrange(W); y = self.rng.randrange(98, 126)
             d.point((x, y), fill=self.rng.choice([(40, 90, 120), (30, 70, 100), (70, 130, 150)]))
@@ -483,6 +494,12 @@ class DockNight:
         d.rectangle([0, 128, W, H], fill=(58, 46, 40))
         for x in range(0, W, 14):
             d.line([(x, 128), (x, H)], fill=(44, 34, 30))
+        _rp = random.Random(3)                                       # v5: plank-tonvariation
+        for px2 in range(0, W, 14):
+            if _rp.random() < 0.45:
+                yy2 = _rp.randrange(131, H - 10)
+                ln = _rp.randrange(4, 9)
+                d.rectangle([px2 + 1, yy2, px2 + 12, min(yy2 + ln, H - 1)], fill=(52, 40, 34))
         d.line([(0, 128), (W, 128)], fill=(90, 76, 62))
         for x in range(6, W, 48):               # pålar
             d.rectangle([x, 142, x + 5, H], fill=(38, 30, 26))
@@ -531,6 +548,9 @@ class DockNight:
                 d.rectangle([lx - 2, 128, lx + 4, 132], fill=(255, 224, 150, 70))
             else:
                 d.ellipse([lx - 3, 91, lx + 5, 99], fill=(40, 38, 46))
+            if lights_on:                                            # v5: ljuskon på kajen
+                d.polygon([(lx - 8, 134), (lx + 10, 134), (lx + 1, 99)],
+                          fill=(255, 214, 140, 40))
         # stads-ljus i bakgrunden täcks upp
         if lights_on:
             for _ in range(26):
@@ -547,6 +567,12 @@ class DockNight:
                 yy = (rng.randrange(H) + t * sp) % H
                 xx2 = xx - int((H - yy) * 0.18)
                 d.line([(xx2, yy), (xx2 - 2, yy + 6)], fill=(160, 190, 220, 110))
+            for j in range(10):                                      # v5: regn-stänk punkter
+                _rj = random.Random(j * 7 + 1)
+                ph = (t * 2.6 + j * 0.37) % 1.0
+                if ph < 0.2:
+                    d.point((_rj.randrange(W), 152 + _rj.randrange(5)),
+                            fill=(190, 210, 230, 140))
         return img
 
 
@@ -632,6 +658,9 @@ class DojoInterior:
         d.line([(bx + 7, 10), (bx + 7, 30)], fill=(30, 26, 26, 255))
         d.ellipse([bx, 30, bx + 14, 64], fill=(150, 60, 46, 255))
         d.ellipse([bx + 2, 34, bx + 6, 40], fill=(180, 84, 66, 255))
+        # v5: lyktglöd-halo + månljuskil från fönstret (ämnesljus)
+        d.ellipse([12, 2, 40, 30], fill=(255, 214, 130, 30))
+        d.polygon([(154, 66), (212, 66), (244, 132), (196, 132)], fill=(110, 145, 200, 16))
         # dörr: glider upp under 0.9s; ljuskil strömmar in
         x0, y0, x1, y1 = self.door_rect
         p = 0.0
@@ -1278,6 +1307,9 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default"):
         # hårfäst-skugga (anime-tell): mörk hudrand längs frisans
         d.line([(6, 13), (27, 13)], fill=_dk(skin, 0.72))
         d.line([(7, 14), (26, 14)], fill=_dk(skin, 0.85))
+        # v5: anime-hårskimra (cel ljusbåge, dubbelgradig)
+        d.arc([5, 1, 27, 17], 195, 340, fill=_lt(cols["H"], 1.5) + (255,), width=2)
+        d.arc([8, 3, 24, 14], 210, 330, fill=_lt(cols["H"], 1.22) + (255,), width=1)
 
         def eye(cx, cy, side):
             if state == "blink":
@@ -1310,8 +1342,19 @@ def make_head_images(cols, hair_style, iris, eyes_kind="default"):
                 ix0 = cx - max(1, iw - 1)
                 d.rectangle([ix0 - 1, cy + etop + 1 - tall, ix0 + iw - 2, cy + ebot],
                             fill=iris + (255,))
+                # v5 ANIME-iris: lockskugga upptill, bas-glans nedtill, pupill, DUBBEL glans
+                d.line([(ix0 - 1, cy + etop + 1 - tall), (ix0 + iw - 2, cy + etop + 1 - tall)],
+                       fill=_dk(iris, 0.5) + (255,))
                 d.rectangle([ix0, cy, ix0, cy + ebot], fill=_dk(iris, 0.55) + (255,))
-                d.point((ix0 - 1, cy + etop + 1 - tall), fill=white)           # GLANSEN
+                d.line([(ix0 - 1, cy + ebot), (ix0 + iw - 2, cy + ebot)],
+                       fill=_lt(iris, 1.3) + (255,))
+                py2 = min(cy + etop + 4, cy + ebot - 1)
+                d.point((ix0, py2), fill=(16, 14, 18, 255))                    # pupill
+                d.point((ix0 - 1, cy + etop + 1 - tall), fill=white)           # GLANS 1 (stor)
+                d.point((ix0 + iw - 2, min(cy + ebot - 1, cy + 1)), fill=white)  # GLANS 2
+                if lash in ("thick", "soft"):                                  # frans-flick ytterhörn
+                    ox2 = cx + (hw + 1) * side
+                    d.point((ox2, cy + etop - tall - 1), fill=out)
                 if state == "angry":
                     d.rectangle([cx - hw, cy + etop - tall, cx + hw,
                                  cy + etop + (2 if etop <= -4 else 1)], fill=out)

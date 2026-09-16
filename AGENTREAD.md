@@ -521,3 +521,15 @@ RESEARCH (sparat: soundcy chiptune-teknik, soundation NES-byggstenar, pixnote sk
 - Kvar från research-backlog: selective outlines (vi använder mörk outl redan per material),
   parallax-lager i miljö (dock har redan stads-silhuett; fördjupa med 2:plan),
   dithering sparsamt på stora ytor (himmel/golv) — provas i nästa pass.
+
+## 9o) v5 CEL-ANIME-UPPGRADEN ("varför inte riktig anime?" -> så nära som vi kan på CPU)
+Verklig AI-anime kräver GPU-motorer; vår CPU-fabrik målar anime i kod. v5:
+- ÖGON: iris lockskugga upptill (_dk), ljus bas nedtill (_lt 1.3), mörk pupill-prick, DUBBEL glans
+  (stor uppe-vänster, liten nere-höger), ytterhörns-frans-flick för thick/soft-profiler.
+  make_head_images returnerar [heads, with_mouth] (lista, inte dict!).
+- HÅR-SKIMRA: dubbelgradad ljusbåge över hjässan (arc 195-340 + 210-330) i make_head_images.
+- DOCK BG: molnsilhuetter, mån-halo 2 ringar, horisont-glanslinje, månsken-spår i sirén, plank-tonvariation.
+- DOCK FRAME: lamp-ljuskoner (polygon a40) när lights_on, regn-stänkpunkter vid marken (10-fas).
+- DOJO FRAME: lykt-halo (a30), månljuskil från fönstret (a16 polygon över golvet).
+- Returnerar [heads,with_mouth]-signatur: probes måste packa upp listan.
+Render ~47s/episod vid 1080p (8.5-9.5 MB).
