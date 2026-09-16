@@ -920,6 +920,281 @@ def px_heart(img, x, y, col=(245, 110, 130, 255)):
     d.point((x + 1, y + 3), fill=col)
 
 
+
+
+# =========================================================================== #
+# 9-5-MILJÖER: lägenhet, tågperrong, kontor, gatan (buss!), void              #
+# =========================================================================== #
+class ApartmentMorning:
+    """Sovsälja: säng, rödh inte väckarklockan, fönstergryning."""
+
+    def __init__(self, seed=0):
+        self.rng = random.Random(seed)
+        self._build()
+
+    def _build(self):
+        self.bg = Image.new("RGB", (W, H), (58, 47, 40))
+        d = ImageDraw.Draw(self.bg)
+        for y in range(0, 128, 7):                     # gammal panel
+            d.line([(0, y), (W, y)], fill=(50, 41, 34))
+        d.rectangle([0, 128, W, H], fill=(96, 76, 56)) # mörgolv
+        # säng (vänster)
+        d.rectangle([8, 100, 88, 140], fill=(74, 88, 120))
+        d.rectangle([8, 96, 18, 100], fill=(88, 102, 138))
+        d.rectangle([14, 92, 44, 102], fill=(206, 200, 188))   # kudde
+        d.rectangle([44, 98, 88, 136], fill=(60, 76, 110))     # täcke
+        d.line([(8, 136), (88, 136)], fill=(30, 28, 34))
+        # natthstands + väckarklocka (röda siffror)
+        d.rectangle([94, 108, 116, 140], fill=(78, 60, 44))
+        d.rectangle([100, 98, 110, 108], fill=(30, 30, 36))
+        # fönster: förmorn-mörk med lampa på hus bortan
+        d.rectangle([150, 22, 214, 70], fill=(64, 48, 36))
+        d.rectangle([154, 26, 210, 66], fill=(14, 20, 44))
+        for _ in range(8):
+            d.point((self.rng.randrange(156, 210), self.rng.randrange(28, 66)), fill=(180, 188, 220))
+        d.line([(182, 26), (182, 66)], fill=(64, 48, 36))
+        # väggklocka (02:00-ish — trötthet)
+        d.ellipse([262, 18, 282, 38], fill=(200, 196, 188), outline=(40, 36, 40))
+        d.line([(272, 28), (272, 20)], fill=(30, 30, 34))
+        d.line([(272, 28), (277, 30)], fill=(30, 30, 34))
+        # poster: bordslandskap han aldrig ser (ironi)
+        d.rectangle([236, 52, 272, 84], fill=(96, 130, 150))
+        d.ellipse([246, 58, 262, 72], fill=(238, 224, 170))
+
+    def frame(self, t):
+        img = self.bg.copy().convert("RGBA")
+        d = ImageDraw.Draw(img, "RGBA")
+        # väckarklocka blinkar 06:00 i rött
+        if int(t * 2) % 2 == 0:
+            d.rectangle([102, 101, 108, 105], fill=(255, 60, 50, 255))
+        else:
+            d.rectangle([102, 101, 108, 105], fill=(120, 30, 28, 255))
+        # dimmsoltråd från fönstret
+        d.polygon([(154, 66), (210, 66), (232, 132), (180, 132)], fill=(150, 170, 220, 14))
+        return img
+
+
+class TrainPlatform:
+    """Perrong: gult säkerhetsstreck, skylt 7:42, tåg som glider förbi."""
+
+    def __init__(self, seed=0, train_t=None):
+        self.rng = random.Random(seed)
+        self.train_t = train_t          # när tåget sveper förbi (0.0-None)
+        self._build()
+
+    def _build(self):
+        self.bg = Image.new("RGB", (W, H), (36, 40, 52))
+        d = ImageDraw.Draw(self.bg)
+        # tak + glödlampor
+        d.rectangle([0, 0, W, 16], fill=(24, 26, 36))
+        for lx in range(30, W, 60):
+            d.line([(lx, 16), (lx, 20)], fill=(60, 62, 74))
+            d.ellipse([lx - 3, 20, lx + 3, 26], fill=(250, 240, 190))
+        # perrong-golv
+        d.rectangle([0, 16, W, 152], fill=(66, 68, 82))
+        d.rectangle([0, 130, W, 152], fill=(52, 54, 66))
+        for x in range(0, W, 22):
+            d.line([(x, 16), (x, 130)], fill=(56, 58, 70))
+        # gul säkerhetslinje
+        d.rectangle([0, 126, W, 130], fill=(214, 184, 60))
+        # spår-aby
+        d.rectangle([0, 152, W, H], fill=(18, 20, 28))
+        for x in range(8, W, 26):
+            d.rectangle([x, 152, x + 12, 160], fill=(30, 32, 42))
+        d.line([(0, 158), (W, 158)], fill=(120, 122, 140), width=2)
+        # skylt: 7:42 — alltid
+        d.rectangle([220, 26, 284, 58], fill=(16, 20, 34), outline=(100, 108, 140), width=2)
+        t = ptext("LINE 7 - 07:42", 2, (140, 200, 235))
+        self.bg.paste(t, (228, 34), t)
+        # affisch: semester irriterande nog
+        d.rectangle([44, 30, 104, 86], fill=(206, 196, 180))
+        d.polygon([(48, 76), (70, 46), (92, 76)], fill=(86, 120, 140))
+        d.ellipse([56, 34, 74, 50], fill=(238, 224, 160))
+        # bänk
+        d.rectangle([140, 108, 186, 112], fill=(96, 82, 60))
+        for bx in (142, 180):
+            d.line([(bx, 112), (bx, 124)], fill=(72, 60, 44))
+
+    def frame(self, t):
+        img = self.bg.copy().convert("RGBA")
+        d = ImageDraw.Draw(img, "RGBA")
+        # tåget: glider in höger->vänster 0.55s fönster, gungar perr-bubblan
+        if self.train_t is not None and self.train_t - 0.1 <= t <= self.train_t + 2.6:
+            p = (t - self.train_t + 0.1) / 2.7
+            xx = int(W + 20 - (W + 300) * p)
+            # vagnkropp
+            d.rectangle([xx, 40, xx + 240, 152], fill=(52, 70, 96))
+            d.rectangle([xx, 40, xx + 240, 84], fill=(56, 82, 116))
+            for wx in range(xx + 8, xx + 236, 18):
+                d.rectangle([wx, 48, wx + 12, 74], fill=(224, 216, 180))
+                if (wx // 18) % 3 == 0:                       # tomma vs fulla säten
+                    d.rectangle([wx, 48, wx + 12, 74], fill=(40, 50, 72))
+            for wx in range(xx + 8, xx + 236, 18):            # röret mellan fönster
+                d.line([(wx + 14, 84), (wx + 14, 152)], fill=(40, 54, 76))
+            d.rectangle([xx, 84, xx + 240, 152], outline=(30, 40, 58))
+            d.rectangle([xx, 144, xx + 240, 152], fill=(36, 48, 66))
+            # gung till perrong-märket som försvinner åt vänster
+            d.ellipse([xx + 250, 92, xx + 262, 104], fill=(240, 238, 200))
+        return img
+
+
+class OfficeGrid:
+    """Kontor: kubikelysning, rutinutskrifter, väggklocka med halvåldrande."""
+
+    def __init__(self, seed=0):
+        self.rng = random.Random(seed)
+        self._build()
+
+    def _build(self):
+        self.bg = Image.new("RGB", (W, H), (96, 100, 112))
+        d = ImageDraw.Draw(self.bg)
+        # kubik-skärmväggar
+        for x in range(0, W, 40):
+            d.rectangle([x + 2, 76, x + 38, 130], fill=(78, 82, 96))
+            d.rectangle([x + 2, 76, x + 38, 130], outline=(64, 68, 80))
+        # skärmkyн glowing
+        self.screens = []
+        for x in range(6, W - 24, 40):
+            self.screens.append((x, 84))
+            d.rectangle([x, 84, x + 22, 106], fill=(30, 40, 56))
+            d.rectangle([x, 84, x + 22, 86], fill=(70, 90, 130))
+        # stora fönstret höger: kvällsjus bortom
+        d.rectangle([252, 8, 304, 60], fill=(76, 84, 108))
+        d.rectangle([256, 12, 300, 56], fill=(18, 24, 46))
+        for _ in range(12):
+            d.point((self.rng.randrange(258, 300), self.rng.randrange(14, 54)),
+                    fill=(200, 205, 235))
+        d.line([(278, 12), (278, 56)], fill=(76, 84, 108))
+        # väggklocka: 16:58, kort till fredag
+        d.ellipse([30, 12, 56, 38], fill=(212, 208, 200), outline=(40, 40, 48))
+        d.line([(43, 25), (43, 15)], fill=(34, 34, 40))
+        d.line([(43, 25), (50, 28)], fill=(34, 34, 40))
+        # taklamprör
+        for lx in range(24, W, 56):
+            d.line([(lx, 0), (lx, 10)], fill=(120, 124, 140))
+            d.rectangle([lx - 8, 10, lx + 8, 14], fill=(240, 244, 250))
+
+    def frame(self, t):
+        img = self.bg.copy().convert("RGBA")
+        d = ImageDraw.Draw(img, "RGBA")
+        # skärmar flimrar (olika hastighet per monitor)
+        for i, (x, y) in enumerate(self.screens):
+            blink = (i * 131 + int(t * 3)) % 7
+            if blink < 2:
+                d.rectangle([x, y, x + 22, y + 22], fill=(24, 34, 48))
+            d.line([(x + 2, y + 10), (x + rngline(x, i, t), y + 10)], fill=(90, 140, 190))
+        # golvljusreflektion (platt plast)
+        d.rectangle([0, 130, W, 152], fill=(86, 90, 102))
+        return img
+
+
+def rngline(x0, i, t):
+    return x0 + 8 + (i * 5 + int(t * 4)) % 12
+
+
+class StreetRain:
+    """Kvällsgata: trottoar (ground=150=korsvägsl nedre?) + bussen vid t_hit."""
+
+    def __init__(self, seed=0, hit_t=None, rain=True):
+        self.rng = random.Random(seed)
+        self.hit_t = hit_t
+        self.rain = rain
+        self._build()
+
+    def _build(self):
+        self.bg = Image.new("RGB", (W, H), (14, 20, 34))
+        d = ImageDraw.Draw(self.bg)
+        # himmel: blåsvart
+        for y in range(70):
+            p = y / 69
+            col = (int(_lerp(10, 22, p)), int(_lerp(16, 42, p)), int(_lerp(30, 58, p)))
+            d.line([(0, y), (W, y)], fill=col)
+        # hus-silhuetter + fönsterprickar
+        for bx in range(0, W, 42):
+            bh = self.rng.randrange(28, 56)
+            d.rectangle([bx, 70 - bh, bx + 34, 74], fill=(22, 28, 42))
+            for fy in range(70 - bh + 4, 68, 7):
+                for fx in range(bx + 3, bx + 32, 6):
+                    if self.rng.random() < 0.3:
+                        d.point((fx, fy), fill=(240, 224, 160))
+        # trottoar (där folk går: ground 150)
+        d.rectangle([0, 74, W, 152], fill=(64, 60, 66))
+        for x in range(0, W, 18):
+            d.line([(x, 74), (x, 152)], fill=(54, 50, 56))
+        # korsning: zebra från x=60 till 128 (buss banne landsväg)
+        for zy in range(76, 150, 9):
+            d.rectangle([60, zy, 128, zy + 5], fill=(210, 208, 202))
+        # trafikljus på trottoaren (rött->grönt blink)
+        d.line([(36, 74), (36, 108)], fill=(40, 40, 46))
+        d.rectangle([30, 60, 42, 92], fill=(28, 28, 34), outline=(52, 52, 58))
+        self.sig_x = 36
+        # väg (under munnen 152)
+        d.rectangle([0, 152, W, H], fill=(34, 34, 42))
+        for x in range(20, W, 44):
+            d.rectangle([x, 166, x + 16, 170], fill=(220, 220, 210))
+        # gatlyktglöd
+        d.line([(196, 74), (196, 110)], fill=(40, 40, 46))
+        d.ellipse([192, 106, 200, 114], fill=(255, 240, 190))
+
+    def frame(self, t):
+        img = self.bg.copy().convert("RGBA")
+        d = ImageDraw.Draw(img, "RGBA")
+        # trafik: röd till 60% av scenens hit, sen grön (fel tidpunkt för grönt!)
+        if self.hit_t is not None and t < self.hit_t - 0.4:
+            d.ellipse([32, 62, 40, 70], fill=(235, 64, 54))
+        else:
+            d.ellipse([32, 62, 40, 70], fill=(60, 220, 90))
+        # BUSSEN: rullar in höger->vänster vid hit_t-0.9, stannar INTE
+        if self.hit_t is not None and self.hit_t - 0.95 <= t <= self.hit_t + 0.5:
+            p = (t - (self.hit_t - 0.95)) / 1.45
+            xx = int(W + 30 - (W + 420) * p)
+            d.rectangle([xx, 86, xx + 240, 152], fill=(96, 148, 178))
+            d.rectangle([xx, 86, xx + 240, 152], outline=(50, 86, 118), width=2)
+            d.rectangle([xx, 86, xx + 240, 120], fill=(60, 104, 136))
+            for wx in range(xx + 10, xx + 232, 20):
+                d.rectangle([wx, 92, wx + 14, 114], fill=(236, 228, 190))
+                if (wx // 20) % 4 == 0:
+                    d.rectangle([wx, 92, wx + 14, 114], fill=(26, 34, 46))
+            d.rectangle([xx + 230, 122, xx + 240, 152], fill=(70, 120, 150))   # förarens fönster
+            for wx in (xx + 8, xx + 200):
+                d.ellipse([wx, 146, wx + 14, 152], fill=(20, 22, 26))
+            # strålkastare: raseri-kon
+            d.polygon([(xx - 2, 116), (xx - 46, 150), (xx - 46, 128)], fill=(255, 236, 160, 90))
+            d.point((xx + 2, 116), fill=(255, 250, 210))
+        if self.rain:
+            for i in range(80):
+                rng = random.Random(i)
+                xx = rng.randrange(W + 40); sp = 190 + (i % 5) * 30
+                yy = (rng.randrange(H) + t * sp) % H
+                xx2 = xx - int((H - yy) * 0.18)
+                d.line([(xx2, yy), (xx2 - 2, yy + 6)], fill=(160, 190, 220, 110))
+        return img
+
+
+class VoidWhite:
+    """Reboot-rummet: allt vitt, en enda glödande pil/"orb"."""
+
+    def __init__(self, seed=0):
+        self.rng = random.Random(seed)
+
+    def frame(self, t):
+        img = Image.new("RGB", (W, H), (238, 240, 246))
+        d = ImageDraw.Draw(img, "RGBA")
+        cx, cy = 160, 90
+        r0 = 120 - min(40, int(t * 14))
+        # mjuk cirkel-glow
+        for rr in range(r0, 0, -18):
+            d.ellipse([cx - rr, cy - rr // 2, cx + rr, cy + rr // 2],
+                      fill=(226, 232, 244, 12))
+        # flytande punkter (damm-stjärnor)
+        for i in range(24):
+            rng2 = random.Random(i * 7)
+            xx = (rng2.randrange(W) + int(t * (4 + i % 3))) % W
+            yy = rng2.randrange(H)
+            d.point((xx, yy), fill=(190, 200, 220, 130))
+        return img.convert("RGBA")
+
+
 def speedlines(img, cx, cy, n=26, col=(255, 255, 255, 120)):
     d = ImageDraw.Draw(img, "RGBA")
     for i in range(n):

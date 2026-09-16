@@ -720,6 +720,20 @@ class Renderer:
             mw, t0m, t1m = lm[0], lm[1], lm[2]
             if t0m <= local_t <= t1m and mw in actors:
                 gwho = mw; gx = actors[mw].track.at(local_t)[0]; break
+        # AUTO-SEPARATION: röriga gruppmoments: aldrig arm-i-arm när allt är lugn
+        sep = {}
+        order0 = sorted(actors.items(), key=lambda kv: kv[1].track.at(local_t)[0])
+        for i2 in range(len(order0)):
+            for j2 in range(i2 + 1, len(order0)):
+                na, nb = order0[i2][0], order0[j2][0]
+                xa = actors[na].track.at(local_t)[0]; xb = actors[nb].track.at(local_t)[0]
+                pa = actors[na].pose_at(local_t); pb = actors[nb].pose_at(local_t)
+                if pa in ("idle", "mov") and pb in ("idle", "mov"):
+                    gap = abs(xb - xa)
+                    if gap < 26:
+                        push = (26 - gap) / 2 if gap > 0.5 else 13.0
+                        sep[na] = sep.get(na, 0.0) - push
+                        sep[nb] = sep.get(nb, 0.0) + push
         # aktörer
         order = sorted(actors.items(), key=lambda kv: kv[1].track.at(local_t)[0])
         for name, act in order:
@@ -727,6 +741,8 @@ class Renderer:
             if pose == "none":
                 continue
             x, flip = act.track.at(local_t)
+            if name in sep:
+                x += sep[name]
             # BLICK: idle-åhörare vänder sig alltid mot talaren (inte in i väggen!)
             if gwho and name != gwho and gx is not None and pose in ("idle",):
                 flip = gx < x
@@ -802,6 +818,11 @@ class Renderer:
                 E.kiai(img, fx["x"], fx["y"])
             elif k == "slash":
                 E.slash(img, fx["x"], fx["y"], fx["t"], local_t)
+            elif k == "stamp" and fx["t0"] <= local_t <= fx["t1"]:
+                st = E.ptext(fx["text"], 2, fx.get("color", (246, 240, 200)))
+                d.rectangle([fx["x"] - 4, fx["y"] - 3, fx["x"] + st.width + 6,
+                             fx["y"] + st.height + 3], fill=(18, 20, 30, 190))
+                img.alpha_composite(st, (fx["x"], fx["y"]))
             elif k == "speedwin" and fx["t0"] <= local_t <= fx["t1"]:
                 E.speedlines(img, fx["cx"], fx["cy"])
         return img   # logisk 320x180 UBEN undertext (ritas efter kamera)
@@ -813,14 +834,152 @@ class Renderer:
 # -------------------------------------------------------------------------- #
 # MAIN                                                                      #
 # -------------------------------------------------------------------------- #
+
+
+# =========================================================================== #
+# 9-5 — Säsongspiloten "Day 9413"                                           #
+# =========================================================================== #
+def build_cast95():
+    base = build_cast()
+    tom = E.AnimeChar("tom", {"H": (122, 84, 50), "S": (250, 215, 180), "T": (168, 152, 128),
+                              "P": (52, 54, 64), "B": (70, 58, 50), "K": (24, 22, 28)},
+                      hair="long", iris=(96, 84, 60), voice_pitch="tom", eyes_kind="soft",
+                      scale_x=0.99, scale_y=1.02,
+                      suit=E.Suit((168, 152, 128), (52, 54, 64), (70, 58, 50), (250, 215, 180),
+                                  arm_w=5, leg_t=0.95, tor_w=10, hips=7))
+    return {"tom": tom, "narr": base["hood"]}
+
+
+def episode_905(cast):
+    sc = []
+    # 0) TITLE
+    sc.append({"env": ("title", {"series": "9-5", "episode": "EP001 - DAY 9413"}),
+               "dur": 4.2, "audio": [(0.3, "boom", 0.5), (3.0, "riser", 0.5)], "mood": "title"})
+    # 1) STREET cold hook (återskådeskuggan av bussen!)
+    sc.append({
+        "env": ("street", {"hit_t": None}), "dur": 8.4, "letterbox": 15, "fadein": 0.8,
+        "mood": "ominous",
+        "cam": [{"kind": "pan", "x": lambda t: 196 - t * 7.6}],
+        "actors": {
+            "tom": {"track": [(0, 236, True), (2.6, 148, True), (8.4, 104, True)],
+                    "blocks": [(0, 8.4, "mov")], "faces": [(2.0, "sad", True)]},
+        },
+        "lines": [(0.8, "narr", "Day 9 413. Alarm city. Monday, again."),
+                  (4.7, "tom", "The rain did not ask permission. Neither did I.")],
+        "audio": [(0.6, "boom", 0.4), (7.1, "riser", 0.4)]})
+    # 2) MORGON Day 1 (lägenheten)
+    sc.append({
+        "env": ("apartment", {}), "dur": 8.6, "mood": "cozy",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.017, "focus": (96, 96)}],
+        "actors": {
+            "tom": {"track": [(0, 34, False), (2.0, 34, False), (5.0, 96, False), (8.6, 100, False)],
+                    "blocks": [(0, 2.0, "idle"), (2.0, 5.0, "walk1"), (5.0, 8.6, "idle")],
+                    "faces": [(0.4, "sad", False), (6.2, "normal", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.5, "t1": 3.6, "text": "DAY 1", "x": 20, "y": 22}],
+        "lines": [(1.2, "tom", "Day 1. The alarm chose violence."),
+                  (5.6, "tom", "Shower is a threat, not a place.")],
+        "audio": [(0.05, "alarm", 0.9), (0.5, "alarm", 0.7), (1.1, "thud", 0.6)]})
+    # 3) DAY 243 (samma lägenhet)
+    sc.append({
+        "env": ("apartment", {}), "dur": 4.4, "mood": "cozy",
+        "actors": {
+            "tom": {"track": [(0, 34, False), (2.0, 96, False), (4.4, 98, False)],
+                    "blocks": [(0, 0.8, "idle"), (0.8, 2.0, "walk1"), (2.0, 4.4, "idle")],
+                    "faces": [(1.6, "sad", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.3, "t1": 3.2, "text": "DAY 243", "x": 20, "y": 22}],
+        "lines": [(1.1, "narr", "Day 243. The coffee tasted like screenshots.")],
+        "audio": [(0.05, "alarm", 0.7)]})
+    # 4) DAY 9412 (samma lägenhet)
+    sc.append({
+        "env": ("apartment", {}), "dur": 3.8, "mood": "cozy",
+        "actors": {
+            "tom": {"track": [(0, 34, False), (1.6, 96, False), (3.8, 96, False)],
+                    "blocks": [(0, 0.6, "idle"), (0.6, 1.6, "walk1"), (1.6, 3.8, "idle")],
+                    "faces": [(0.2, "sad", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.2, "t1": 2.6, "text": "DAY 9 412", "x": 20, "y": 22}],
+        "lines": [(1.0, "narr", "Day 9 412. His reflection blinked first.")],
+        "audio": [(0.05, "alarm", 0.6)]})
+    # 5) PERRONG: tåget sveper förbi
+    sc.append({
+        "env": ("platform", {"train_t": 3.4}), "dur": 9.2, "mood": "ominous",
+        "cam": [{"kind": "pan", "x": lambda t: 148 + t * 2.2}],
+        "actors": {
+            "tom": {"track": [(0, 168, False), (9.2, 168, False)],
+                    "blocks": [(0, 9.2, "idle")],
+                    "faces": [(0.4, "sad", False), (6.4, "normal", False)]},
+        },
+        "lines": [(0.7, "narr", "Same train. Same seat. Same song stuck to the seat."),
+                  (6.2, "tom", "I move numbers. Nobody knows where to.")],
+        "audio": [(3.3, "rumble", 0.95), (5.4, "whoosh", 0.7)]})
+    # 6) KONTOR
+    sc.append({
+        "env": ("office", {}), "dur": 9.4, "mood": "mystery",
+        "cam": [{"kind": "zoom", "z": lambda t: 1.0 + t * 0.013, "focus": (200, 96)}],
+        "actors": {
+            "tom": {"track": [(0, 204, False), (9.4, 206, False)],
+                    "blocks": [(0, 9.4, "idle")],
+                    "faces": [(1.4, "normal", False), (5.6, "sad", False)]},
+        },
+        "fx": [{"kind": "stamp", "t0": 0.4, "t1": 3.0, "text": "DAY 9 413", "x": 20, "y": 22}],
+        "lines": [(0.8, "narr", "Day 9 413. His job: move numbers from left to right."),
+                  (5.2, "tom", "If the numbers ever arrive anywhere... it is at home.")],
+        "audio": []})
+    # 7) GATAN + BUSSEN (hit!)
+    sc.append({
+        "env": ("street", {"hit_t": 6.2}), "dur": 10.0, "letterbox": 13, "fadeout": 0.55,
+        "mood": "menace",
+        "cam": [{"kind": "pan", "x": lambda t: 140 - t * 4.6}],
+        "actors": {
+            "tom": {"track": [(0, 148, True), (2.0, 66, True), (4.6, 66, True),
+                              (5.2, 76, False), (6.0, 94, False), (6.15, 96, False),
+                              (6.9, 96, False), (10, 96, False)],
+                    "blocks": [(0, 2.0, "mov"), (2.0, 4.6, "idle"), (4.8, 5.6, "walk1"),
+                               (6.2, 6.5, "hurt"), (6.5, 10, "fall")],
+                    "faces": [(0.4, "normal", True), (2.2, "sad", True),
+                              (5.1, "wide", False), (6.2, "whiteout", False)]},
+        },
+        "lines": [(0.8, "narr", "The 42 never honked before. It knew him by heart."),
+                  (3.4, "tom", "Green again. Story of my li-")],
+        "fx": [{"kind": "impact", "t": 6.2, "x": 102, "y": 96, "invert": True}],
+        "audio": [(4.9, "horn", 1.0), (5.6, "rumble", 0.9), (6.2, "boom", 1.0)]})
+    # 8) VOID: reboot
+    sc.append({
+        "env": ("void", {}), "dur": 9.2, "fadein": 0.9, "mood": "mystery",
+        "actors": {
+            "tom": {"track": [(0, 160, False), (9.2, 160, False)],
+                    "blocks": [(0, 9.2, "idle")],
+                    "faces": [(0.3, "wide", False), (2.8, "spark", False),
+                              (5.4, "normal", False)]},
+        },
+        "lines": [(1.0, "narr", "Then: nothing. And then: this clean, white room."),
+                  (4.2, "tom", "...this is not the 42."),
+                  (6.6, "narr", "CONTINUE?")],
+        "fx": [{"kind": "stamp", "t0": 6.8, "t1": 9.2, "text": "PLAYER 2 READY",
+                "x": 108, "y": 24, "color": (140, 170, 220)}],
+        "audio": [(0.2, "sparkle", 0.5), (6.6, "sparkle", 0.6)]})
+    # 9) PREVIEW
+    sc.append({"env": ("preview", {"no": 2, "title": "LEVEL 0 - THE TUTORIAL",
+                                   "lines": ["tom wakes in an RPG world",
+                                              "a cat deity picks the save file",
+                                              "bus-kun returns... RUN"]}),
+               "dur": 5.6, "fadein": 0.4, "mood": "happy"})
+    return sc
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ep", type=int, default=1)
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    cast = build_cast()
-    ep_fn = {1: episode_001, 2: episode_002, 3: episode_003}.get(args.ep, episode_001)
+    cast = build_cast95() if args.ep == 905 else build_cast()
+    if args.ep == 905:
+        globals()["SERIES"] = "9-5"
+        globals()["CAST95"] = True
+    ep_fn = {1: episode_001, 2: episode_002, 3: episode_003, 905: episode_905}.get(args.ep, episode_001)
     scenes = ep_fn(cast)
 
     # ---------------- LJUD: röster + envelope-läppar ----------------------
@@ -838,6 +997,8 @@ def main():
 
     # ADAPTIV MUSIK: sektion per scen-mood (tension/cozy/action/mystery/...)
     def _scene_mood(sc):
+        if "mood" in sc:
+            return sc["mood"]
         ek = sc["env"][0]
         if ek == "title":
             return "title"
@@ -906,7 +1067,12 @@ def main():
 
     # ---------------- VIDEO-RENDER -----------------------------------------
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    out = args.out or f"/home/user/pixeltube/out/volt-breaker-ep{args.ep:03d}.mp4"
+    if args.out:
+        out = args.out
+    elif args.ep == 905:
+        out = "/home/user/pixeltube/out/nine-five-ep001.mp4"
+    else:
+        out = f"/home/user/pixeltube/out/volt-breaker-ep{args.ep:03d}.mp4"
     os.makedirs(os.path.dirname(out), exist_ok=True)
 
     renderer = Renderer(cast)
@@ -952,13 +1118,23 @@ def main():
                                                         catchword=("THUNDER SEASON 1" if who == "ren"
                                                                    else "static grins back"),
                                                         seed=301, dark=(who != "ren"))
+            elif env_kind == "apartment":
+                Renderer._envcache[ck] = E.ApartmentMorning(seed=301 + idx)
+            elif env_kind == "platform":
+                Renderer._envcache[ck] = E.TrainPlatform(seed=301 + idx, **env_args)
+            elif env_kind == "office":
+                Renderer._envcache[ck] = E.OfficeGrid(seed=301 + idx)
+            elif env_kind == "street":
+                Renderer._envcache[ck] = E.StreetRain(seed=301 + idx, **env_args)
+            elif env_kind == "void":
+                Renderer._envcache[ck] = E.VoidWhite(seed=301 + idx)
             elif env_kind == "preview":
                 Renderer._envcache[ck] = E.PreviewCard(env_args["no"], env_args["title"], env_args["lines"], seed=301)
         env = Renderer._envcache[ck]
         if not hasattr(Renderer, "_lwins"):
             Renderer._lwins = {}
         mouths = {name: mouth_per.get((idx, name), np.zeros(0)) for name in s.get("actors", {})}
-        if env_kind in ("dock", "dojo"):
+        if env_kind in ("dock", "dojo", "apartment", "platform", "office", "street", "void"):
             if not hasattr(Renderer, "_actcache"):
                 Renderer._actcache = {}
             if ck not in Renderer._actcache:
@@ -976,7 +1152,7 @@ def main():
         # SHOT LANGUAGE: etablerande->MCU->shot-reverse-shot->low-angle->ECU-flash
         ops = list(s.get("cam", []))
         flash = False
-        if env_kind in ("dock", "dojo"):
+        if env_kind in ("dock", "dojo", "apartment", "platform", "office", "street", "void"):
             if not hasattr(Renderer, "_plans"):
                 Renderer._plans = {}
             if idx not in Renderer._plans:
@@ -1015,7 +1191,7 @@ def main():
         if flash:
             img.alpha_composite(Image.new("RGBA", img.size, (255, 255, 255, 195)))
         # ---- undertext EFTER kamera (aldrig croppad av zoom) ---------------
-        if env_kind in ("dock", "dojo"):
+        if env_kind in ("dock", "dojo", "apartment", "platform", "office", "street", "void"):
             for who, text, t0, t1 in lwins_all[idx]:
                 if t0 <= lt <= t1:
                     draw_sub(img, text, who)
@@ -1045,7 +1221,8 @@ def main():
         except OSError: pass
     size = os.path.getsize(out) / 1e6
     print(f"   ✅ KLART: {out} ({size:.1f} MB)")
-    meta = {"title": f"{SERIES} - Episode {args.ep:03d}", "seed": 301,
+    meta = {"title": (f"{SERIES} - Episode 001 - Day 9413" if args.ep == 905
+                      else f"{SERIES} - Episode {args.ep:03d}"), "seed": 301,
             "madeForKids": False, "language": "en"}
     json.dump(meta, open(out.replace(".mp4", ".json"), "w"), indent=2)
 

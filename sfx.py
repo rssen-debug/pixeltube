@@ -162,3 +162,36 @@ def make(name):
             "splash": splash, "sparkle": sparkle, "fanfare": fanfare,
             "thud": thud, "bonk": bonk, "snore": snore, "flame": flame,
             "boom": boom, "riser": riser}[name]()
+
+def alarm():
+    """Digitalt väckarklockes-trippel-pip."""
+    t = np.linspace(0, 1.15, int(SR * 1.15), False)
+    w = np.zeros_like(t)
+    for k in range(3):
+        b0 = int(k * SR * 0.36)
+        seg = t[b0:b0 + int(SR * 0.22)]
+        w[b0:b0 + int(SR * 0.22)] = np.sign(np.sin(2 * np.pi * 1568 * seg)) * 0.5
+    w = w.astype(np.float32)
+    w *= np.exp(-t * 0.6)
+    return w
+
+
+def horn():
+    """Buss-tut! Slegnande tvåstavat honk i motorregister."""
+    t = np.linspace(0, 0.85, int(SR * 0.85), False)
+    w = (np.sign(np.sin(2 * np.pi * 233 * t)) * 0.45
+         + np.sign(np.sin(2 * np.pi * 311 * t)) * 0.35) * 0.7
+    env = np.ones_like(t); env[int(SR * 0.6):] *= np.exp(-(t[int(SR * 0.6):] - 0.6) * 6)
+    return (w * env).astype(np.float32)
+
+
+def rumble():
+    """Tåg/buss-avrall: filtrerat brus-rassel."""
+    n = int(SR * 2.4)
+    rng = np.random.RandomState(11)
+    w = rng.uniform(-1, 1, n).astype(np.float32)
+    k = 240
+    w = np.convolve(w, np.ones(k, dtype=np.float32) / k, mode="same")
+    t = np.arange(n) / SR
+    return w * 0.85 * np.exp(-t * 1.1) + 0.04 * np.sin(2 * np.pi * 46 * t)
+

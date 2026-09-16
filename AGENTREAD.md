@@ -562,3 +562,19 @@ Render ~47s/episod vid 1080p (8.5-9.5 MB).
   (verifierat: tillwyn trio vänder huvud mot mika när hon talar.)
 - Research: 180-regel + "en som rör i taget" i fights; hyperpad sprite-anatomi;
   skyrye m/f-proportioner (axel/höft-kontrast = gendercept.
+
+## 10) SERIE 2: "9-5" EP001 "Day 9413" (--ep 905)
+- ISEKAI-TRUCK-premiss som komedi: loop-liv (DAY 1/243/9412-stämplar) -> buss 42 -> vit VOID -> "CONTINUE? PLAYER 2 READY".
+- NYA ENVIRON (v2engine): ApartmentMorning (säng+alarmblip), TrainPlatform (tåg sveper per train_t),
+  OfficeGrid (kubik+flimrande skärmar rvia rngline), StreetRain (hus-silhuetter, zebraj 60-128,
+  trafikljus röd->grön, BUSS vid hit_t-0.95 med strålkastarkon), VoidWhite (reboot-rum, glödcirkel+damm).
+- LÄXA: env_kind gating i main-loopens `if env_kind in ("dock","dojo")`-villkor lyser SÅNT
+  (aktörer+subs+cam-funktioner stängs av helt!). Utvidga med alla actor-envs listat i scenerna.
+  Symptom: tolkar utan karaktärer/subs att en "scene rendered" fast bakgrund var fine.
+- fx "stamp": ptext DAY N-stämpel+svart bas i fx-loop (t0/t1); ljud: sfx.alarm/horn/rumble tillagda.
+- voice.py SPECIES_PITCH: "tom": 0.78 (trött man).
+- Cam-dispatch: {'kind':'zoom','z': lambda t:..., 'focus':(x,y)} + {'kind':'pan','x': lambda t:...} —
+  INTE t0/t1/z0/z1 (KeyError z).
+- PreviewCard "no" är INT (f"{no:03d}").
+- Render: ~35s, 4.0 MB, 1080p/24. Fil: out/nine-five-ep001.mp4.
+- KARRAKTÄREN Tom: beige hoodie m, brun lång frisyr, eyes "soft", iris bärnsten, slap-time 1.02.
