@@ -273,6 +273,23 @@ def episode_001(cast):
 # -------------------------------------------------------------------------- #
 # RENDERER                                                                  #
 # -------------------------------------------------------------------------- #
+def _mood_for_line(who, text):
+    """(eyes, mouth_open, mouth_closed, addons) medan repliken pågår."""
+    t = text or ""
+    if who == "kaba":
+        return ("angry", "open", "grit", ("vein",))
+    if "cheap shot" in t or "owes me" in t:
+        return ("sad", "open", "grit", ("sweat", "blush"))
+    if any(k in t for k in ("KIDS", "WAKE THEM", "Show yourself", "My turn",
+                            "wake them up", "Activate", "activating")):
+        return ("whiteout", "shout", "grit", ())
+    if who == "mika":
+        return ("wide", "open", "grin", ())
+    if who == "yuki":
+        return ("angry", "open", "frown", ())
+    return ("wide", "open", "grit", ())
+
+
 class Renderer:
     def __init__(self, cast):
         self.cast = cast
@@ -324,9 +341,19 @@ class Renderer:
             fi = int(local_t * FPSS)
             if fi < act.mouth.size and act.mouth[fi]:
                 mouth = "open"
+            # ---- DIREKTREAKTION: talarens ansikte byter mood i scenen ----
+            addons = ()
+            for (mw, t0m, t1m, meyes, mo_open, mo_closed, madd) in getattr(
+                    self, "line_moods", ()):
+                if mw == name and t0m <= local_t <= t1m:
+                    if eyes == "normal":
+                        eyes = meyes
+                    mouth = mo_open if mouth == "open" else mo_closed
+                    addons = madd
+                    break
             # aura bakom karaktären hanteras av fx nedan (ordning: aura pre-actors)
             rig_pose = {"mov": "walk", "walk1": "walk", "walk2": "walk"}.get(pose, pose)
-            ch_img = act.char.full(rig_pose, local_t, eyes, mouth, bruise)
+            ch_img = act.char.full(rig_pose, local_t, eyes, mouth, bruise, addons)
             if flip:
                 from PIL import ImageOps as _IO
                 ch_img = _IO.mirror(ch_img)
@@ -494,55 +521,31 @@ def main():
             for nm, ac in actors.items():
                 ac.mouth = mouths.get(nm, np.zeros(0))
             lwins = [(who, text, t0, t1) for (ii, who, text, t0, t1) in lines_global if ii == idx]
+            renderer.line_moods = [
+                (who, t0, t1) + _mood_for_line(who, text) for (who, text, t0, t1) in lwins]
             small = renderer.scene_frame(s, env, actors, lt)
         else:
             small = env.frame(lt)          # kort lever redan på logisk nivå
         # ---- kamera & letterbox på logisk nivå (320x180) -------------------
-        if s.get("cam") or s.get("letterbox"):
-            ops = list(s.get("cam", []))
-            if s.get("letterbox"):
-                ops.append({"kind": "letterbox", "h": s["letterbox"]})
+        ops = list(s.get("cam", []))
+        # PUNCH-IN: kameran glider mot talarens ansikte under repliken (0.22s ease)
+        if env_kind in ("dock", "dojo"):
+            for who2, _tx2, t02, t12 in lwins_all[idx]:
+                if who2 in ("narr", "hood") or who2 not in actors:
+                    continue
+                if t02 <= lt <= t12 + 0.28:
+                    pin = min(1.0, max(0.0, (lt - t02) / 0.22))
+                    pout = min(1.0, max(0.0, (lt - t12) / 0.28))
+                    ease = (1 - (1 - pin) ** 2) * (1 - pout * pout)
+                    fxp = int(actors[who2].track.at(lt)[0])
+                    ops.append({"kind": "zoom", "z": 1.0 + 0.45 * ease,
+                                "focus": (fxp, 92)})
+                    break
+        if s.get("letterbox"):
+            ops.append({"kind": "letterbox", "h": s["letterbox"]})
+        if ops:
             small = E.apply_camera(small, lt, ops)
         img = small.resize((OUTW, OUTH), NEAREST)
-        # ---- CUT-IN / FACE-OFF närbild under replik ------------------------
-        cutwho, cutwin, cuttext = None, None, None
-        prevwho = None
-        if env_kind in ("dock", "dojo"):
-            prev_end = -9.0
-            for who, text, t0, t1 in lwins_all[idx]:
-                if t0 <= lt <= t1 and who in cast and who not in ("narr", "hood"):
-                    cutwho, cutwin, cuttext = who, (t0, t1), text
-                    break
-                if who not in ("narr", "hood"):
-                    prev_end = t1
-            pairwho = None
-            lwl = lwins_all[idx]
-            for k2, (w2, tx2, ta2, tb2) in enumerate(lwl):
-                if not (ta2 <= lt <= tb2 and w2 == cutwho):
-                    continue
-                if k2 > 0:
-                    pw, _pt, _pa, pb = lwl[k2 - 1]
-                    if pw not in ("narr", "hood", cutwho) and lwl[k2][2] - pb <= 1.9:
-                        pairwho = pw
-                break
-        if cutwho:
-            MOOD = {"ren": "normal", "yuki": "normal", "mika": "normal", "kaba": "grit"}
-            ADD = {}
-            if cutwho == "kaba":
-                ADD = ("vein",)
-            if cuttext and ("cheap shot" in cuttext or "owes me" in cuttext):
-                ADD = ("sweat", "blush")
-            if pairwho and pairwho in cast:          # FACE-OFF-DUELL!
-                img = E.faceoff(img, cast[pairwho], cast[cutwho], "B",
-                                CHIP_COLS.get(pairwho, (150, 150, 150)),
-                                CHIP_COLS.get(cutwho, (150, 150, 150)),
-                                pairwho, cutwho, lt - cutwin[0])
-            else:
-                side = (lt > cutwin[0] + (cutwin[1] - cutwin[0]) / 2) if False else \
-                       (lwins_all[idx][0][0] != cutwho)
-                img = E.cutin(img, cast[cutwho], lt - cutwin[0], side, cutwho,
-                              CHIP_COLS.get(cutwho, (150, 150, 150)),
-                              mood=MOOD.get(cutwho, "normal"), addons=ADD)
         # ---- undertext EFTER kamera (aldrig croppad av zoom) ---------------
         if env_kind in ("dock", "dojo"):
             for who, text, t0, t1 in lwins_all[idx]:

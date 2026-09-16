@@ -984,6 +984,9 @@ def draw_body(img, suit, j, scale=1.0):
     _cap(d, hipL, hipR, suit.jacket, int(9 * scale), out)
     _cap(d, shL, shR, suit.jacket, int(8 * scale), out)
     _cap(d, P("pelvis"), P("neck"), suit.jacket, int(11 * scale), out)
+    # tvåtons-skuggning: höger sida mörkare (ljus från vänster)
+    _cap(d, (P("pelvis")[0] + 7, P("pelvis")[1]), (shR[0] + 2, shR[1]),
+         _dk(suit.jacket, 0.8), int(6 * scale), _dk(suit.jacket, 0.8))
     # krage + dragkedja
     nx, ny = P("neck")
     d.polygon([(nx - 5, ny + 2), (nx, ny - 3), (nx + 5, ny + 2)], fill=_dk(suit.jacket, 0.8))
@@ -1001,37 +1004,57 @@ def draw_body(img, suit, j, scale=1.0):
 # ---------------------------------------------------------------------------
 # ANIMEHUVUD 26x24 – ansiktsupplägg ritas dynamiskt per frame
 # ---------------------------------------------------------------------------
+def _lt(c, f=1.25):
+    return tuple(min(255, int(v * f)) for v in c[:3])
+
+
 def _base_head(skin, out):
-    h = Image.new("RGBA", (34, 30), (0, 0, 0, 0))
+    # canvas 34x34 (+5 pixlar ovanför gamla 30-ramen: hårtopparna får plats)
+    h = Image.new("RGBA", (34, 34), (0, 0, 0, 0))
     d = ImageDraw.Draw(h)
-    # One Piece-ansikte: lång käklinje, bred panna, liten haka
-    d.polygon([(17, 28), (8, 25), (5, 18), (5, 8), (29, 8), (29, 18), (26, 25)], fill=skin)
+    dk = _dk(skin, 0.82)
+    d.polygon([(17, 33), (8, 30), (5, 23), (5, 13), (29, 13), (29, 23), (26, 30)], fill=skin)
+    # skugg-sida (höger kant, ljuset kommer vänsterifrån) + käkskugga
+    d.polygon([(27, 14), (29, 14), (28, 21), (28, 26), (27, 26)], fill=dk)
+    d.polygon([(23, 28), (26, 30), (17, 33)], fill=dk)
+    d.line([(9, 30), (16, 32)], fill=dk)
+    # öra
+    d.rectangle([4, 17, 5, 21], fill=skin)
+    d.point((4, 18), fill=dk)
     return h
 
 
 def _hair(d, style, col, out):
-    dk = _dk(col, 0.8)
+    dk = _dk(col, 0.78)
+    lt = _lt(col)
     if style == "spiky":
-        d.polygon([(2, 11), (4, 2), (8, 6), (11, -1), (15, 5), (18, -2), (21, 4),
-                   (25, -1), (28, 5), (31, 1), (33, 10), (30, 6), (17, 3), (4, 6)], fill=col)
-        d.line([(6, 9), (10, 7)], fill=dk)
-        d.line([(24, 7), (28, 9)], fill=dk)
+        d.polygon([(2, 16), (4, 7), (8, 11), (11, 4), (15, 10), (18, 3), (21, 9),
+                   (25, 4), (28, 10), (31, 6), (33, 15), (30, 11), (17, 8), (4, 11)], fill=col)
+        d.polygon([(4, 11), (17, 8), (30, 11), (32, 14), (30, 13), (17, 10), (5, 13), (2, 16)],
+                  fill=dk)
+        d.line([(6, 14), (10, 12)], fill=dk)
+        d.line([(24, 12), (28, 14)], fill=dk)
+        d.point((12, 7), fill=lt); d.point((19, 6), fill=lt)
     elif style == "long":
-        d.polygon([(1, 12), (4, 1), (17, -2), (30, 1), (33, 12), (29, 7), (17, 4), (5, 7)],
+        d.polygon([(1, 17), (4, 6), (17, 3), (30, 6), (33, 17), (29, 12), (17, 9), (5, 12)],
                   fill=col)
-        d.polygon([(1, 12), (5, 7), (5, 27), (2, 24)], fill=col)
-        d.polygon([(33, 12), (29, 7), (29, 27), (32, 24)], fill=col)
-        d.line([(12, 3), (12, 7)], fill=dk)
-        d.line([(22, 3), (22, 7)], fill=dk)
+        d.polygon([(1, 17), (5, 12), (5, 32), (2, 29)], fill=dk)
+        d.polygon([(33, 17), (29, 12), (29, 32), (32, 29)], fill=dk)
+        d.polygon([(5, 12), (17, 9), (29, 12), (28, 13), (17, 11), (6, 13)], fill=dk)
+        d.line([(12, 8), (12, 12)], fill=dk)
+        d.line([(22, 8), (22, 12)], fill=dk)
     elif style == "pony":
-        d.polygon([(2, 11), (4, 1), (17, -2), (30, 1), (32, 11), (28, 6), (17, 3), (6, 6)],
+        d.polygon([(2, 16), (4, 6), (17, 3), (30, 6), (32, 16), (28, 11), (17, 8), (6, 11)],
                   fill=col)
-        d.polygon([(3, 3), (-2, 10), (0, 24), (4, 20), (4, 10)], fill=dk)
-        d.polygon([(29, 4), (33, 9), (32, 12)], fill=col)
-        d.line([(8, 7), (12, 5)], fill=dk)
+        d.polygon([(3, 8), (-1, 15), (0, 29), (4, 25), (4, 15)], fill=dk)
+        d.polygon([(29, 9), (33, 14), (32, 17)], fill=col)
+        d.polygon([(6, 11), (17, 8), (28, 11), (27, 12), (17, 10), (7, 12)], fill=dk)
+        d.line([(8, 12), (12, 10)], fill=dk)
+        d.point((14, 7), fill=lt)
     elif style == "hawk":
-        d.polygon([(11, 8), (12, -3), (17, -5), (22, -3), (23, 8), (20, 3), (14, 3)], fill=col)
-        d.line([(13, 0), (21, 0)], fill=dk)
+        d.polygon([(11, 13), (12, 2), (17, 0), (22, 2), (23, 13), (20, 8), (14, 8)], fill=col)
+        d.line([(13, 5), (21, 5)], fill=dk)
+        d.point((18, 3), fill=lt)
 
 
 def make_head_images(cols, hair_style, iris):
@@ -1056,37 +1079,38 @@ def make_head_images(cols, hair_style, iris):
                 for dx, dy in ((0, -4), (-3, -1), (2, -1), (-2, 2), (1, 2), (0, 4)):
                     d.point((cx + dx, cy + dy), fill=white)
                 return
-            # öga: vitor + iris + glans + frans
+            tall = 1 if state == "wide" else 0
+            # öga: vitor + iris + glans + frans (stora anime-ögon)
             if state == "whiteout":            # One Piece: tomma vita ögon m. pupillprick
-                d.rectangle([cx - 3, cy - 4, cx + 2, cy + 3], fill=white)
+                d.rectangle([cx - 3, cy - 5, cx + 3, cy + 3], fill=white)
                 d.point((cx - 1, cy + 1), fill=out)
-                d.line([(cx - 3, cy - 4), (cx + 2, cy - 4)], fill=out)
+                d.line([(cx - 3, cy - 5), (cx + 3, cy - 5)], fill=out)
             else:
-                d.rectangle([cx - 3, cy - 4, cx + 2, cy + 3], fill=white)
-                cw = 2
-                d.rectangle([cx - cw, cy - 3, cx, cy + 3], fill=iris + (255,))
-                d.point((cx - cw, cy - 3), fill=white)               # GLANSEN
+                d.rectangle([cx - 3, cy - 4 - tall, cx + 3, cy + 3], fill=white)
+                d.rectangle([cx - 2, cy - 3 - tall, cx, cy + 3], fill=iris + (255,))
+                d.rectangle([cx - 1, cy - 1, cx - 1, cy + 3], fill=_dk(iris, 0.55) + (255,))
+                d.point((cx - 2, cy - 3 - tall), fill=white)                   # GLANSEN
                 if state == "angry":
-                    d.rectangle([cx - 3, cy - 4, cx + 2, cy - 2], fill=out)   # smal övre frans
-                d.line([(cx - 3, cy - 4), (cx + 2, cy - 4)], fill=out)         # franslinje
+                    d.rectangle([cx - 3, cy - 4, cx + 3, cy - 1], fill=out)
+                d.line([(cx - 3, cy - 4 - tall), (cx + 3, cy - 4 - tall)], fill=out)  # frans
                 d.point((cx - 2, cy + 4), fill=_dk(skin, 0.65))                # nedre frans
-        eye(10, 15, 1)
-        eye(23, 15, -1)
+        eye(10, 19, 1)
+        eye(23, 19, -1)
         # bryn
         if state == "angry":
-            d.line([(6, 10), (12, 12)], fill=out, width=1)
-            d.line([(27, 10), (21, 12)], fill=out, width=1)
-            d.line([(6, 9), (12, 10)], fill=_dk(out, 0.7))
+            d.line([(6, 15), (12, 17)], fill=out, width=1)
+            d.line([(27, 15), (21, 17)], fill=out, width=1)
+            d.line([(6, 14), (12, 15)], fill=_dk(out, 0.7))
         elif state == "sad":
-            d.line([(6, 12), (12, 10)], fill=out)
-            d.line([(27, 12), (21, 10)], fill=out)
+            d.line([(6, 17), (12, 15)], fill=out)
+            d.line([(27, 17), (21, 15)], fill=out)
         elif state in ("normal", "wide", "spark"):
-            d.line([(7, 10), (12, 10)], fill=_dk(cols["H"], 0.5))
-            d.line([(22, 10), (27, 10)], fill=_dk(cols["H"], 0.5))
+            d.line([(7, 15), (12, 15)], fill=_dk(cols["H"], 0.5))
+            d.line([(22, 15), (27, 15)], fill=_dk(cols["H"], 0.5))
         # näsa
-        d.line([(16, 17), (17, 19)], fill=_dk(skin, 0.7))
+        d.line([(16, 22), (17, 24)], fill=_dk(skin, 0.7))
         if state == "angry":
-            d.point((14, 19), fill=_dk(skin, 0.6))
+            d.point((14, 24), fill=_dk(skin, 0.6))
         heads[state] = im
 
     def with_mouth(im, mouth, addons=()):
@@ -1096,46 +1120,46 @@ def make_head_images(cols, hair_style, iris):
         teeth = (250, 250, 246, 255)
         tongue = (200, 80, 90, 255)
         if mouth == "open":
-            d.rectangle([13, 21, 21, 24], fill=mc)
-            d.rectangle([14, 23, 20, 24], fill=tongue)
-            d.line([(13, 21), (21, 21)], fill=teeth)
+            d.rectangle([13, 26, 21, 29], fill=mc)
+            d.rectangle([14, 28, 20, 29], fill=tongue)
+            d.line([(13, 26), (21, 26)], fill=teeth)
         elif mouth == "grin":
-            d.rectangle([12, 21, 22, 23], fill=teeth)
-            d.line([(12, 23), (22, 23)], fill=out)
-            d.line([(17, 21), (17, 23)], fill=_dk((250, 250, 246), 0.7))
-            d.point((11, 21), fill=out); d.point((23, 21), fill=out)
+            d.rectangle([12, 26, 22, 28], fill=teeth)
+            d.line([(12, 28), (22, 28)], fill=out)
+            d.line([(17, 26), (17, 28)], fill=_dk((250, 250, 246), 0.7))
+            d.point((11, 26), fill=out); d.point((23, 26), fill=out)
         elif mouth == "shout":
-            d.rectangle([12, 20, 22, 25], fill=mc)
-            d.rectangle([12, 20, 22, 21], fill=teeth)
-            d.rectangle([14, 24, 20, 25], fill=tongue)
+            d.rectangle([12, 25, 22, 30], fill=mc)
+            d.rectangle([12, 25, 22, 26], fill=teeth)
+            d.rectangle([14, 29, 20, 30], fill=tongue)
         elif mouth == "grit":                    # One Piece-argbest: knäppt tänder
-            d.rectangle([11, 20, 23, 24], fill=teeth)
+            d.rectangle([11, 25, 23, 29], fill=teeth)
             for gx in (14, 17, 20):
-                d.line([(gx, 20), (gx, 24)], fill=_dk((250, 250, 246), 0.55))
-            d.line([(11, 22), (23, 22)], fill=_dk((250, 250, 246), 0.5))
-            d.rectangle([11, 20, 11, 24], outline=out)
+                d.line([(gx, 25), (gx, 29)], fill=_dk((250, 250, 246), 0.55))
+            d.line([(11, 27), (23, 27)], fill=_dk((250, 250, 246), 0.5))
+            d.rectangle([11, 25, 11, 29], outline=out)
         elif mouth == "frown":
-            d.line([(13, 23), (21, 22)], fill=out)
-            d.point((12, 24), fill=out); d.point((22, 22), fill=out)
+            d.line([(13, 28), (21, 27)], fill=out)
+            d.point((12, 29), fill=out); d.point((22, 27), fill=out)
         else:
-            d.line([(14, 22), (20, 22)], fill=_dk(skin, 0.6))
+            d.line([(14, 27), (20, 27)], fill=_dk(skin, 0.6))
         # anime-ikoner: svett / vredesåder / rodnad
         if "sweat" in addons:
-            for i, (sx, sy) in enumerate(((29, 9), (31, 14), (4, 10))):
+            for i, (sx, sy) in enumerate(((29, 14), (31, 19), (4, 15))):
                 d.rectangle([sx, sy, sx + 1, sy + 2], fill=(170, 220, 250, 255))
                 d.point((sx, sy), fill=white)
         if "vein" in addons:
-            vx, vy = 27, 4
+            vx, vy = 27, 9
             d.line([(vx - 2, vy), (vx + 2, vy)], fill=out)
             d.line([(vx, vy - 2), (vx, vy + 2)], fill=out)
             d.line([(vx - 3, vy + 2), (vx + 3, vy - 2)], fill=_dk(out, 0.6))
         if "blush" in addons:
-            for bx in (7, 25):
-                d.point((bx, 18), fill=(245, 140, 150, 200))
-                d.point((bx + 1, 18), fill=(245, 140, 150, 200))
+            for bx in (7, 26):
+                d.point((bx, 23), fill=(245, 140, 150, 200))
+                d.point((bx + 1, 23), fill=(245, 140, 150, 200))
         if "bruise" in addons:
-            d.point((27, 20), fill=(230, 90, 90, 255)); d.point((27, 21), fill=(230, 90, 90, 255))
-            d.point((28, 21), fill=(230, 90, 90, 255))
+            d.point((27, 25), fill=(230, 90, 90, 255)); d.point((27, 26), fill=(230, 90, 90, 255))
+            d.point((28, 26), fill=(230, 90, 90, 255))
         return out_im
 
     return heads, with_mouth
@@ -1158,9 +1182,9 @@ class AnimeChar:
         self.hair_style = hair
         self.dark = palette.get("__dark__", False)
 
-    def full(self, pose, t, eyes="normal", mouth="closed", bruise=False):
+    def full(self, pose, t, eyes="normal", mouth="closed", bruise=False, addons=()):
         key = (pose, round(t * (6.0 if pose in ("walk", "run") else 2.0), 2),
-               eyes, mouth, bruise)
+               eyes, mouth, bruise, addons)
         if key in self._cache:
             return self._cache[key]
         img = Image.new("RGBA", (BODY_CV_W, BODY_CV_H), (0, 0, 0, 0))
@@ -1169,7 +1193,7 @@ class AnimeChar:
         draw_body(img, self.suit, j, scale=1.0)
         # huvud: neck-led (0,56) -> huvudets nederdel ditsätts
         head = self.heads.get(eyes, self.heads["normal"])
-        head = self._with_mouth(head, mouth)
+        head = self._with_mouth(head, mouth, addons)
         if bruise:
             hd = ImageDraw.Draw(head)
             hd.point((20, 16), fill=(235, 90, 90, 255))
@@ -1187,20 +1211,20 @@ class AnimeChar:
     def bust(self, eyes="angry", mouth="grin", addons=()):
         """Bröstbild: huvud + axelparti (anime-byst). addons: sweat/vein/blush/bruise."""
         head = self._with_mouth(self.heads.get(eyes, self.heads["normal"]), mouth, addons)
-        b = Image.new("RGBA", (44, 36), (0, 0, 0, 0))
+        b = Image.new("RGBA", (44, 40), (0, 0, 0, 0))
         d = ImageDraw.Draw(b)
         out = self.suit.outl
-        d.polygon([(0, 35), (3, 27), (12, 25), (22, 23), (32, 25), (41, 27), (44, 35)],
+        d.polygon([(0, 39), (3, 31), (12, 29), (22, 27), (32, 29), (41, 31), (44, 39)],
                   fill=self.suit.jacket)
-        d.polygon([(0, 35), (3, 27), (12, 25), (22, 23), (32, 25), (41, 27), (44, 35)],
+        d.polygon([(0, 39), (3, 31), (12, 29), (22, 27), (32, 29), (41, 31), (44, 39)],
                   outline=out)
-        d.rectangle([21, 24, 22, 35], fill=_dk(self.suit.jacket, 0.7))
-        d.rectangle([20, 22, 23, 24], fill=self.suit.skin)
-        b.alpha_composite(head, (5, 0))
+        d.rectangle([21, 28, 22, 39], fill=_dk(self.suit.jacket, 0.7))
+        d.rectangle([20, 26, 23, 28], fill=self.suit.skin)
+        b.alpha_composite(head, (5, 3))
         return b
 
     def get_bust_scaled(self, eyes, mouth, n, addons=()):
-        return self.bust(eyes, mouth, addons).resize((44 * n, 36 * n), NEAREST)
+        return self.bust(eyes, mouth, addons).resize((44 * n, 40 * n), NEAREST)
 
 
 def cutin(img, char, t_since, side, name, chip_col, mood="normal", addons=()):
@@ -1248,7 +1272,7 @@ def faceoff(img, charA, charB, active, chip_a, chip_b, name_a, name_b, t_since):
     _cen = ((-40 + 44 * 9 // 2, -1, chip_a), (img.width - 44 * 9 // 2 + 40, 1, chip_b))
     for cx, back, cc in _cen:
         col = tuple(min(255, c + 80) for c in cc[:3]) + (95,)
-        cy = ch2 - 36 * 9 - 40 + 110
+        cy = ch2 - 40 * 9 - 40 + 110
         for k in range(12):
             a = _m.pi + back * (k - 5.5) * 0.20
             x2 = cx + int(_m.cos(a) * 560); y2 = cy + int(_m.sin(a) * 420)
