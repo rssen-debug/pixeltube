@@ -17,7 +17,7 @@ import numpy as np
 
 SR = 44100
 BASE_FREQ = 380.0
-SPECIES_PITCH = {"dino": 0.95, "apa": 1.35, "kanin": 1.65}
+SPECIES_PITCH = {"dino": 0.95, "apa": 1.35, "kanin": 1.65, "mech": 0.55}   # mecha = djup robot
 
 
 def _bleep(freq, dur, vol=0.42):

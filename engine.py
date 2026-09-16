@@ -23,7 +23,7 @@ ACTOR_GAP = 52
 NEAREST = getattr(getattr(Image, "Resampling", Image), "NEAREST")
 ACTIONS = ("walk", "run", "jump", "dance", "spin", "hit", "duck", "wave", "sleep",
            "fire", "shock", "fall", "flex", "powerup")
-LAND = frozenset(["forest", "night", "beach", "space", "snow", "candy"])
+LAND = frozenset(["forest", "night", "beach", "space", "snow", "candy", "city"])
 
 
 def _rows(s):
@@ -339,6 +339,7 @@ DINO_TINTS = {
     "teal":   {"O": (62, 186, 174),  "D": (34, 138, 128), "B": (192, 244, 236)},
     "lila":   {"O": (158, 110, 230), "D": (116, 74, 180), "B": (226, 206, 255)},
     "rosa":   {"O": (240, 120, 160), "D": (196, 78, 122), "B": (255, 205, 224)},
+    "crimson":{"O": (214, 72, 86),   "D": (162, 44, 58),  "B": (255, 196, 160)},
 }
 APE_TINTS = {
     # "M" = kroppen (BUGGFIX: utan denna nyckel ritades apan osynlig!),
@@ -346,16 +347,66 @@ APE_TINTS = {
     "brun":    {"O": (150, 100, 58), "M": (150, 100, 58), "D": (112, 72, 40),  "B": (230, 196, 152), "E": (230, 196, 152)},
     "gyllene": {"O": (205, 150, 60), "M": (205, 150, 60), "D": (160, 112, 40), "B": (250, 224, 168), "E": (250, 224, 168)},
     "grå":     {"O": (140, 145, 155), "M": (140, 145, 155), "D": (105, 110, 120), "B": (215, 220, 228), "E": (215, 220, 228)},
+    "kolnatt": {"O": (94, 96, 118), "M": (94, 96, 118), "D": (62, 64, 84), "B": (216, 212, 228), "E": (216, 212, 228)},
 }
 BUNNY_TINTS = {
     "vit":  {"O": (236, 236, 242), "D": (204, 204, 216), "B": (255, 255, 255), "E": (255, 165, 195)},
     "grå":  {"O": (165, 168, 178), "D": (130, 133, 145), "B": (228, 230, 236), "E": (255, 165, 195)},
     "rosa": {"O": (248, 175, 195), "D": (220, 138, 162), "B": (255, 222, 232), "E": (255, 255, 255)},
     "brun": {"O": (190, 145, 95),  "D": (150, 110, 66),  "B": (235, 205, 165), "E": (255, 190, 205)},
+    "blå":  {"O": (96, 140, 220),  "D": (58, 94, 166),   "B": (196, 222, 255), "E": (255, 180, 205)},
 }
 
-SPECIES_MAPS = {"dino": (DINO_A, DINO_B), "apa": (APE_A, APE_B), "kanin": (BUNNY_A, BUNNY_B)}
-SPECIES_TINTS = {"dino": DINO_TINTS, "apa": APE_TINTS, "kanin": BUNNY_TINTS}
+MECH_A = _rows("""
+.........E...........
+.........D...........
+.....OOOOOOOOOOO.....
+.....OWWWWWWWWO.....
+.....OWWWWKWWWWO.....
+......DDDDDDDDD......
+...DD.OOOOOOOOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOOOOOOOO.DD...
+......DOOOOOOOOD.....
+......OOOOOOOOOO.....
+.......OOO..OOO......
+.......OOO..OOO......
+.......OOO..OOO......
+......OOOO..OOOO.....
+""")
+
+MECH_B = _rows("""
+.........E...........
+.........D...........
+.....OOOOOOOOOOO.....
+.....OWWWWWWWWO.....
+.....OWWWWKWWWWO.....
+......DDDDDDDDD......
+...DD.OOOOOOOOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOBBBBOOO.DD...
+...DD.OOOOOOOOOO.DD...
+......DOOOOOOOOD.....
+......OOOOOOOOOO.....
+.......OOO..OOO......
+.......OOO..OOO......
+......OOO...OOO......
+.....OOOO...OOOO.....
+""")
+
+# B = glödande reaktorkärna; visiren (W) "blinkar" automatiskt som en robot ska
+MECH_TINTS = {
+    "krom":    {"O": (176, 184, 202), "D": (112, 120, 146), "B": (110, 228, 255)},
+    "midnatt": {"O": (74, 82, 112),   "D": (46, 52, 76),    "B": (255, 140, 70)},
+}
+
+SPECIES_MAPS = {"dino": (DINO_A, DINO_B), "apa": (APE_A, APE_B), "kanin": (BUNNY_A, BUNNY_B),
+                "mech": (MECH_A, MECH_B)}
+SPECIES_TINTS = {"dino": DINO_TINTS, "apa": APE_TINTS, "kanin": BUNNY_TINTS,
+                  "mech": MECH_TINTS}
 
 # Fast rollista (key -> (art, färg, visningsnamn, alias som hör till samma karaktär))
 REGISTRY = {
@@ -374,6 +425,11 @@ REGISTRY = {
     "kaninen": ("kanin", "vit", "Hops"),
     "kurre": ("kanin", "grå",   "Ash"),
     "stina": ("kanin", "rosa",  "Pix"),
+    # ----- KNOX HOLLOW (pixel-anime-ensemblen) -----
+    "jun":   ("dino",  "crimson", "Jun"),     # hetlevrad shonen-hjälte
+    "mira":  ("kanin", "blå",     "Mira"),    # kylig strateg
+    "knox":  ("mech",  "krom",    "Knox"),    # uråldrig väktarmecha (comic relief)
+    "grim":  ("apa",   "kolnatt", "Grim"),    # rivalen med hederskodex
 }
 
 
@@ -882,6 +938,14 @@ SCHEMES = {
         "ground": ((228, 206, 158), (214, 190, 140)), "dots": [(240, 225, 190), (198, 178, 138)],
         "particles": "bubbla", "clouds": 0,
     },
+    "city": {     # KNOX HOLLOW – neon-skymning, gatljus och fönster som aldrig släcks
+        "sky": ((30, 24, 66), (232, 116, 80)), "celest": ("moon", (62, 44, 17)),
+        "hills": (((44, 34, 92), 84, 20, 130), ((28, 22, 64), 102, 14, 96)),
+        "tree": "building", "tree_cols": ((34, 30, 74), (54, 44, 110)),
+        "ground": ((66, 60, 78), (44, 40, 54)),
+        "dots": [(94, 86, 110), (74, 78, 102), (252, 182, 96)],
+        "particles": "mote", "clouds": 1, "stars": 30,
+    },
     "candy": {
         "sky": ((255, 186, 214), (255, 240, 247)), "celest": ("sun", (262, 30, 13)),
         "hills": (((255, 196, 224), 130, 14, 110), ((255, 164, 206), 144, 10, 80)),
@@ -898,7 +962,7 @@ SCHEMES = {
 AMBIENTS = {
     "forest": (150, 200, 150), "night": (60, 75, 140), "beach": (255, 236, 190),
     "space": (128, 92, 190), "snow": (205, 225, 244), "underwater": (52, 130, 185),
-    "candy": (255, 205, 225),
+    "candy": (255, 205, 225), "city": (186, 136, 196),
 }
 
 # ---------------------------------------------------------------------------
@@ -926,6 +990,29 @@ def _cloud_img(rng):
         d.ellipse([bx, by, bx + bw, by + bh], fill=(255, 255, 255, 210))
     d.rectangle([4, h - 6, w - 4, h - 1], fill=(255, 255, 255, 185))
     return img
+
+
+def _tower(d, x, base_y, rng, dark, light):
+    """Neon-Stad: tornhus med tända fönster + antenn med rött blinkljus."""
+    w = rng.randint(16, 30)
+    hgt = rng.randint(38, 106)
+    x0 = x - w // 2
+    mid = tuple(int((a + b) / 2) for a, b in zip(dark, light))
+    body = rng.choice([dark, light, mid])
+    d.rectangle([x0, base_y - hgt, x0 + w, base_y + 3], fill=body + (255,))
+    neon = [(255, 205, 120), (120, 230, 255), (255, 120, 200), (140, 255, 170)]
+    dk = tuple(int(v * 0.62) for v in body)
+    for wy in range(base_y - hgt + 4, base_y - 5, 7):
+        for wx in range(x0 + 3, x0 + w - 4, 6):
+            if rng.random() < 0.26:
+                d.rectangle([wx, wy, wx + 2, wy + 3], fill=rng.choice(neon) + (255,))
+            else:
+                d.rectangle([wx, wy, wx + 2, wy + 3], fill=dk + (255,))
+    if rng.random() < 0.45:
+        ax = x0 + rng.randint(2, max(3, w - 3))
+        ah = rng.randint(6, 14)
+        d.line([(ax, base_y - hgt), (ax, base_y - hgt - ah)], fill=body + (255,))
+        d.point((ax, base_y - hgt - ah), fill=(255, 80, 90, 255))
 
 
 def _pine(d, x, base, s, dark, light, snowy=False):
@@ -1014,7 +1101,7 @@ class Scene:
         if not actors:
             actors = [(Character("leo"), None)]
         self.actors = []
-        for a in actors[:3]:
+        for a in actors[:4]:
             ch, spec = (a if isinstance(a, tuple) else (a, None))
             if isinstance(spec, list):            # v7: beatsegment
                 segs = spec
@@ -1111,7 +1198,8 @@ class Scene:
         dark, light = self.pal.get("tree_cols", ((40, 80, 50), (60, 120, 70)))
         snowy = bool(self.pal.get("snowy"))
         spacing = {"palm": self.rng.randint(120, 200), "coral": self.rng.randint(70, 110),
-                   "lollipop": self.rng.randint(56, 84)}.get(kind, self.rng.randint(44, 70))
+                   "lollipop": self.rng.randint(56, 84),
+                   "building": self.rng.randint(30, 50)}.get(kind, self.rng.randint(44, 70))
         x = self.rng.randint(0, 30)
         while x < W + 40:
             for xx in (x, x + W):
@@ -1127,6 +1215,8 @@ class Scene:
                 elif kind == "lollipop":
                     _lollipop(d, xx, GROUND_Y + 2, self.rng.uniform(0.9, 1.3),
                               self.rng.choice(self.pal.get("loli_cols", [(255, 130, 170)])))
+                elif kind == "building":
+                    _tower(d, xx, GROUND_Y + 1, self.rng, dark, light)
             x += spacing + self.rng.randint(-14, 22)
         self.trees = img
 
@@ -1251,6 +1341,14 @@ class Scene:
             x = self.rng.randrange(2 * W)
             r = self.rng.randint(7, 13)
             d.ellipse([x - r, H - r // 2, x + r, H + r // 2], fill=dark2)
+        if self.setting == "city":                                  # gatubelysning
+            lx = self.rng.randint(8, 60)
+            while lx < 2 * W - 6:
+                top = H - self.rng.randint(62, 86)
+                d.rectangle([lx, top, lx + 2, H + 2], fill=dark2)
+                d.rectangle([lx - 4, top, lx + 6, top + 3], fill=dark2)
+                d.point((lx + 2, top + 5), fill=(255, 224, 150, 255))
+                lx += self.rng.randint(74, 124)
         if self.setting in ("forest", "night", "snow"):              # stam-kant ibland
             if self.rng.random() < 0.5:
                 x = self.rng.choice([self.rng.randint(2, 26), self.rng.randint(2 * W - 30, 2 * W - 6)])

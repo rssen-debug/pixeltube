@@ -267,14 +267,16 @@ def build_beats(text, acts, cast, dur):
                        seg(t_ev, t_ev + (3.0 if power_up else 2.0), acts[att]),
                        seg(t_ev + (3.0 if power_up else 2.0), None, None)]}
         impact = t_ev + (1.0 if power_up else 0.95 if acts[att] == "fire" else 0.45)
+        ras = []
         for o in [n for n in cast if n != att]:
             ra = acts.get(o)
             ra = ra if ra in ("duck", "shock", "fall") else \
                 ("shock" if power_up else "fall" if acts[att] == "fire" else "shock")
+            ras.append(ra)
             beats[o] = [seg(0.0, impact, None, move="enter_r"),
                         seg(impact, impact + 1.9, ra),
                         seg(impact + 1.9, None, None)]
-        return beats, impact, ra
+        return beats, impact, ("duck" if "duck" in ras else (ras[-1] if ras else None))
     react = next((acts.get(n) for n in cast if acts.get(n) == "duck"), None)
 
     beats = {}

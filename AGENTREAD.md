@@ -350,6 +350,29 @@ BOOKING RULES (cam_plan): every ciné-cue attaches to a beat, never spam.
 sakuga layer per gag, depth/light layers always on, slow-mo only on dodges,
 powerup only where the script earns it. Intensity is a budget.
 
+## 9e. v10 KNOX HOLLOW – pixel-ANIME-fabriken (stad + mecha + ensemble)
+
+* **Staden är en karaktär** – setting `city`: skymningsgradient med stor måne,
+  `tree: "building"` (_tower: 3 djup-nyanser, 26% tända neonfönster, röda
+  antennblink), lila mesa-lager (_hills) som "far skyline", asfalt med
+  neon-dots, gatlyktor i FÖRGRUNDEN med glödande lampa (255,224,150).
+* **Mecha-arten** – MECH_A/B (22×17). Visiren = W-pixlar → robotblinker fritt.
+  B = glödande reaktorkärna (cyan i "krom", eld-orange i "midnatt").
+  Röstbass 0.55.
+* **Ensemble-regler (v10, LÄRDIGT):** ALLA cast medlemmar är med i VARJE scen
+  (max 4). Skriv därför scen-texter med NAMNGIVNA verb per karaktär –
+  aldrig "Everyone <verb>" när verben skiljer sig: grupptrampen ger ALLA det
+  första verbet i meningen (fyra samtidiga powerup, hej).
+* **Slow-mo-fix:** react = "duck" om NÅGOT offer duckar (inte bara sista
+  offrets action) – annars dog Matrix-duckning i ensembler.
+* **Episode 1-research (r/anime trådar):** cold open mitt i hotet
+  (Eva/Bebop), karaktärer avslöjas av RÖRELSE före replik (Liz & the Blue
+  Bird), obesvarat mysterium från scen 2 med payoff-belöning (Steins;Gate),
+  rival introduceras via flex-duell. KNOX_HOLLOW S01E01 "The Signal"
+  följer detta: 8 scener, alla i staden, Watcher cliffhanger.
+* Rollregistret: Jun (dino/crimson) hetlevrad · Mira (kanin/blå) strateg ·
+  Knox (mech/krom) uråldrig väktare · Grim (apa/kolnatt) rival.
+
 ## 10. Hard-won lessons (don't relearn them)
 
 - Sprite letters not present in the tint dict render TRANSPARENT. That's

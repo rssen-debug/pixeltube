@@ -69,7 +69,7 @@ VERBS = {
     "powerup": ["awakens", "awakened", "unleashes", "unleashed", "erupts", "ascends"],
 }
 GROUP_WORDS = [" they ", " both ", " everyone ", " the duo ", " the two ",
-               " together", " duo "]
+               " together", " duo ", " the crew ", " the squad ", " the four "]
 
 
 def parse_actions(text, cast_names):
@@ -323,6 +323,35 @@ TEMPLATES = [
 ]
 
 ESCALATION_TIERS = [t["tier"] for t in TEMPLATES]
+
+
+KNOX_HOLLOW = [
+    {
+        "title": "Knox Hollow S01E01: The Signal", "tier": 5,
+        "cast": ["jun", "mira", "knox", "grim"],
+        "scenes": [
+            {"setting": "city",      # COLD OPEN: mitt i action, direkt (research: AoT/Eva)
+             "text": "A stranger fell out of the Knox Hollow sky at dusk. Jun sprinted across the rooftops before the sirens even started. Mira and Knox rushed after him. Even Grim ran, out of pure spite."},
+            {"setting": "city", "mystery": True,   # WORLD + o besvarat mysterium
+             "text": "High above the neon, something watched from the tallest antenna. It held a hand-drawn map with four faces circled in red."},
+            {"setting": "city",      # karaktärer avslöjas av RÖRELSE före replik (Liz-tekniken)
+             "text": "Mira crept toward the crash crater, reading every reflection in the windows. Knox saluted the crater three times, to be safe. Jun jumped straight in."},
+            {"setting": "city",
+             "text": "Grim strutted into the streetlight with a cape of stolen traffic banners. 'That signal belongs to ME,' he declared. Knox flexed back, purely out of confusion."},
+            {"setting": "city",      # MATRIX-DUCKNING: slow-mo slås på automatiskt
+             "text": "Grim smacked the pavement with a road sign. Jun ducked, smooth as streaming in 4K. Mira and Knox gasped in unison."},
+            {"setting": "city",      # TRANSFORMATION: mech-powerup – mitt i stan!
+             "text": "The old antenna ignited. Knox awakened his guardian protocol, older than the city itself. Jun froze mid-step. Mira froze. Even Grim froze. The pigeons froze too."},
+            {"setting": "city",      # OP-låts-jakt: hela ganget i speedlines
+             "text": "They bolted down Neon Avenue together – four shadows, one signal, zero plan."},
+            {"setting": "city", "mystery": True, "reaction": "★",    # CLIFFHANGER (stämmorna i stan!)
+             "text": "Behind them, every screen in the city blinked the same spiral. The Watcher took notes. It was smiling now. Probably."},
+        ],
+    },
+]
+
+
+TEMPLATES = KNOX_HOLLOW + TEMPLATES
 
 
 def normalize_scenes(raw):
