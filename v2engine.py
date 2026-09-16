@@ -599,6 +599,26 @@ class DojoInterior:
         dd2 = ImageDraw.Draw(self.bg)
         dd2.line([(118, 38), (118, 70)], fill=(30, 26, 30), width=2)
         dd2.line([(114, 46), (122, 46)], fill=(30, 26, 30))
+        # bokken-ställ (vapenställ) vänster vägg
+        dd2.rectangle([8, 58, 10, 96], fill=(58, 42, 30))
+        for bx2, bcol in ((14, (150, 108, 70)), (18, (172, 130, 84)), (22, (128, 92, 58))):
+            dd2.line([(bx2 - 6, 60), (bx2 + 6, 96)], fill=bcol, width=2)
+            dd2.point((bx2 - 7, 59), fill=(200, 160, 110))
+        dd2.rectangle([6, 94, 14, 98], fill=(58, 42, 30))
+        # hänglykta i taket (varm glöd)
+        dd2.line([(26, 0), (26, 10)], fill=(40, 34, 40))
+        dd2.polygon([(19, 10), (33, 10), (30, 23), (22, 23)], fill=(238, 198, 128))
+        dd2.polygon([(19, 10), (33, 10), (30, 23), (22, 23)], outline=(90, 66, 44))
+        dd2.rectangle([24, 14, 28, 18], fill=(255, 240, 190))
+        # signum-affisch på högra väggen
+        dd2.rectangle([302, 40, 316, 78], fill=(214, 206, 190))
+        dd2.rectangle([302, 40, 316, 78], outline=(120, 92, 64))
+        dd2.ellipse([305, 46, 313, 56], outline=(150, 42, 44), width=2)
+        dd2.line([(309, 60), (309, 72)], fill=(30, 26, 30), width=2)
+        dd2.line([(305, 65), (312, 65)], fill=(30, 26, 30))
+        # tatami-sömmar i golvet
+        for tx in range(46, W, 58):
+            dd2.line([(tx, 130), (tx + 7, H - 2)], fill=(138, 108, 70))
 
     def frame(self, t):
         img = self.bg.copy().convert("RGBA")
@@ -1033,6 +1053,17 @@ def draw_body(img, suit, j, scale=1.0):
     _cap(d, (P("pelvis")[0] - 8, P("pelvis")[1] + 1), (shL[0] + 1, shL[1] + 1),
          tuple(min(255, int(v * 1.22)) for v in suit.jacket[:3]), int(3 * scale),
          tuple(min(255, int(v * 1.22)) for v in suit.jacket[:3]))
+    # ärm-muddar + skärp + spänne + stövelkanter (16-bit-trim)
+    cuff = tuple(min(255, int(v * 1.35)) for v in suit.jacket[:3])
+    for hx, hy in (P("handL"), P("handR")):
+        d.line([(hx - 3, hy - 3), (hx + 3, hy - 3)], fill=cuff)
+    pvx, pvy = P("pelvis")
+    d.line([(pvx - suit.hips, pvy - 2), (pvx + suit.hips, pvy - 2)],
+           fill=_dk(suit.pants, 0.7))
+    d.point((pvx, pvy - 2), fill=(214, 192, 122))                    # spänne
+    for ftx, fty in (ftL, ftR):
+        d.line([(ftx - 3, fty - 5), (ftx + 4, fty - 5)],
+               fill=tuple(min(255, int(v * 1.3)) for v in suit.boots[:3]))
     # krage + dragkedja
     nx, ny = P("neck")
     d.polygon([(nx - 5, ny + 2), (nx, ny - 3), (nx + 5, ny + 2)], fill=_dk(suit.jacket, 0.8))
@@ -1082,6 +1113,10 @@ def _hair(d, style, col, out):
         d.line([(6, 14), (10, 12)], fill=dk)
         d.line([(24, 12), (28, 14)], fill=dk)
         d.point((12, 7), fill=lt); d.point((19, 6), fill=lt)
+        # slingor (strå-detaljer)
+        d.line([(7, 9), (9, 5)], fill=lt)
+        d.line([(16, 10), (17, 5)], fill=dk)
+        d.line([(26, 10), (24, 5)], fill=lt)
     elif style == "long":
         d.polygon([(1, 17), (4, 6), (17, 3), (30, 6), (33, 17), (29, 12), (17, 9), (5, 12)],
                   fill=col)
@@ -1090,6 +1125,12 @@ def _hair(d, style, col, out):
         d.polygon([(5, 12), (17, 9), (29, 12), (28, 13), (17, 11), (6, 13)], fill=dk)
         d.line([(12, 8), (12, 12)], fill=dk)
         d.line([(22, 8), (22, 12)], fill=dk)
+        # slingor
+        d.line([(8, 10), (7, 18)], fill=lt)
+        d.line([(26, 10), (27, 18)], fill=dk)
+        d.line([(15, 11), (15, 15)], fill=lt)
+        d.line([(4, 20), (4, 27)], fill=lt)
+        d.line([(30, 20), (30, 27)], fill=dk)
     elif style == "pony":
         d.polygon([(2, 16), (4, 6), (17, 3), (30, 6), (32, 16), (28, 11), (17, 8), (6, 11)],
                   fill=col)
@@ -1098,15 +1139,34 @@ def _hair(d, style, col, out):
         d.polygon([(6, 11), (17, 8), (28, 11), (27, 12), (17, 10), (7, 12)], fill=dk)
         d.line([(8, 12), (12, 10)], fill=dk)
         d.point((14, 7), fill=lt)
+        # slingor
+        d.line([(6, 12), (4, 18)], fill=lt)
+        d.line([(17, 9), (17, 12)], fill=dk)
+        d.line([(1, 16), (1, 24)], fill=lt)
     elif style == "hawk":
         d.polygon([(11, 13), (12, 2), (17, 0), (22, 2), (23, 13), (20, 8), (14, 8)], fill=col)
         d.line([(13, 5), (21, 5)], fill=dk)
         d.point((18, 3), fill=lt)
+        d.line([(14, 7), (13, 12)], fill=lt)
+        d.line([(20, 7), (21, 12)], fill=dk)
 
 
-def make_head_images(cols, hair_style, iris):
+EK_SHAPES = {
+    # hw=halvbredd box, top/bot vertikala gränser, iw=irisbredd, lash=övre-frans-typ
+    "default": dict(hw=3, top=-4, bot=3, iw=2, lash="line"),
+    "sharp":   dict(hw=3, top=-3, bot=2, iw=2, lash="slant"),
+    "big":     dict(hw=4, top=-5, bot=4, iw=3, lash="thick"),
+    "soft":    dict(hw=3, top=-4, bot=4, iw=3, lash="none"),
+    "small":   dict(hw=2, top=-2, bot=2, iw=2, lash="ridge"),
+    "slit":    dict(hw=3, top=-1, bot=1, iw=0, lash="slit"),
+}
+
+
+def make_head_images(cols, hair_style, iris, eyes_kind="default"):
     skin, out = cols["S"], cols["K"]
     white = (255, 255, 255, 255)
+    ek = EK_SHAPES.get(eyes_kind, EK_SHAPES["default"])
+    hw, etop, ebot, iw, lash = ek["hw"], ek["top"], ek["bot"], ek["iw"], ek["lash"]
 
     heads = {}
     for state in ("normal", "blink", "wide", "angry", "x", "spark", "sad", "whiteout",
@@ -1133,20 +1193,42 @@ def make_head_images(cols, hair_style, iris):
                 for dx, dy in ((0, -4), (-3, -1), (2, -1), (-2, 2), (1, 2), (0, 4)):
                     d.point((cx + dx, cy + dy), fill=white)
                 return
+            # ögon SLITS (hood): bara linje + svag glans
+            if lash == "slit" and state in ("normal", "wide", "angry", "sad"):
+                d.line([(cx - 3, cy), (cx + 3, cy)], fill=out)
+                d.point((cx + 1, cy - 1), fill=(150, 155, 175, 220))
+                return
             tall = 1 if state == "wide" else 0
-            # öga: vitor + iris + glans + frans (stora anime-ögon)
+            # öga: vitor + iris + glans + frans — GEOMETRI per karaktärsprofil
             if state == "whiteout":            # One Piece: tomma vita ögon m. pupillprick
                 d.rectangle([cx - 3, cy - 5, cx + 3, cy + 3], fill=white)
                 d.point((cx - 1, cy + 1), fill=out)
                 d.line([(cx - 3, cy - 5), (cx + 3, cy - 5)], fill=out)
             else:
-                d.rectangle([cx - 3, cy - 4 - tall, cx + 3, cy + 3], fill=white)
-                d.rectangle([cx - 2, cy - 3 - tall, cx, cy + 3], fill=iris + (255,))
-                d.rectangle([cx - 1, cy - 1, cx - 1, cy + 3], fill=_dk(iris, 0.55) + (255,))
-                d.point((cx - 2, cy - 3 - tall), fill=white)                   # GLANSEN
+                d.rectangle([cx - hw, cy + etop - tall, cx + hw, cy + ebot], fill=white)
+                ix0 = cx - max(1, iw - 1)
+                d.rectangle([ix0 - 1, cy + etop + 1 - tall, ix0 + iw - 2, cy + ebot],
+                            fill=iris + (255,))
+                d.rectangle([ix0, cy, ix0, cy + ebot], fill=_dk(iris, 0.55) + (255,))
+                d.point((ix0 - 1, cy + etop + 1 - tall), fill=white)           # GLANSEN
                 if state == "angry":
-                    d.rectangle([cx - 3, cy - 4, cx + 3, cy - 1], fill=out)
-                d.line([(cx - 3, cy - 4 - tall), (cx + 3, cy - 4 - tall)], fill=out)  # frans
+                    d.rectangle([cx - hw, cy + etop - tall, cx + hw,
+                                 cy + etop + (2 if etop <= -4 else 1)], fill=out)
+                if lash == "line":
+                    d.line([(cx - hw, cy + etop - tall), (cx + hw, cy + etop - tall)],
+                           fill=out)
+                elif lash == "thick":
+                    d.rectangle([cx - hw, cy + etop - tall, cx + hw, cy + etop + 1 - tall],
+                                fill=out)
+                elif lash == "slant":
+                    d.line([(cx - hw, cy + etop - tall), (cx + hw, cy + etop + 1 - tall)],
+                           fill=out)
+                elif lash == "ridge":
+                    d.rectangle([cx - hw - 1, cy + etop - 2 - tall, cx + hw + 1,
+                                 cy + etop - 1], fill=out)
+                else:
+                    d.line([(cx - hw, cy + etop - tall), (cx + hw, cy + etop - tall)],
+                           fill=_dk(out, 0.5))
                 d.point((cx - 2, cy + 4), fill=_dk(skin, 0.65))                # nedre frans
         eye(10, 19, 1)
         eye(23, 19, -1)
@@ -1235,7 +1317,8 @@ class AnimeChar:
     """Skelett-animehjälte. draw() renderar kropp+huvud som EN bild (cachad)."""
 
     def __init__(self, name, palette, hair="spiky", iris=(200, 120, 40),
-                 suit=None, scale=1.0, voice_pitch="ren", scale_x=1.0, scale_y=1.0):
+                 suit=None, scale=1.0, voice_pitch="ren", scale_x=1.0, scale_y=1.0,
+                 eyes_kind="default"):
         self.name = name
         self.scale = scale
         self.scale_x, self.scale_y = scale_x, scale_y
@@ -1245,7 +1328,7 @@ class AnimeChar:
                                  pants=palette.get("P", (50, 50, 60)),
                                  boots=palette.get("B", (60, 45, 35)),
                                  skin=palette["S"])
-        self.heads, self._with_mouth = make_head_images(palette, hair, iris)
+        self.heads, self._with_mouth = make_head_images(palette, hair, iris, eyes_kind)
         self._cache = {}
         self.hair_style = hair
         self.dark = palette.get("__dark__", False)

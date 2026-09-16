@@ -477,3 +477,12 @@ Research (autoweeb/frameo/gugu storyboard-guider + limited-animation-underlag):
 - **KOREOGRAFI — träffbudget**: varje punch-block kräver angripare inom ~26 px av målet. Pattern: angriparen har LUNGE-track (kaba 230->150->112 på 0.62s innan sin punch 0.75, sedan rekyl 112->188 mot 2.3 när yukis kontring 2.3 landar vid 188). impact/kiai-fx x-koordinat = faktisk kontaktpunkt (92/184/190/220), speedlines-centrum dito. Rens final-double: x till 196 innan punch (räckhåll 196+26=222 vs kaba 226). ALDRIG punch utan motståndare inom räckhåll — annars läggs luftslag-syndikat till i review.
 - Eldflugor: E.fireflies(img,t) på alla dock-scener (9 punkter, sine-drift, puls-alpha).
 - Validerings-grid på fight-tiderna OBLIGATORISK före skepp (45.6/47.35/57.05 ep1 etc.).
+
+## 9l) v3.5 DETALJ-PAKETET (user: "mer detaljer, 1:1 anime fast pixelerad")
+Iterativ review-loop: TÄT genomgång (12 frames/episod) -> defektkatalog -> fix -> re-review. Defekterna som hittades+fixades:
+- **Ögonprofiler** (EK_SHAPES i make_head_images, AnimeChar(eyes_kind=)): default/ren, sharp/yuki (kortare box+sluttande frans), big/mika (hw=4 bot=4 thick-frans, störst), small/kaba (2px djup+lid-ridge bar), slit/hood (linje+svag glans), soft/naya (utan hård frans). Målbild: ansikten ska skiljas redan i långskott. angry-state täcker etop+2 rader generiskt.
+- **Hår-slingor**: 2-5 tunna lt/dk-linjer per frisyrstil (spiky: toppstrån, long: sidlockar, pony: svanskanter, hawk: ränder).
+- **Outfit-trim**: ärmmudd (_lt 1.35 handled), skärp-linje + guldgult spännepixel, stövel-topkant (_lt 1.3). Syns i långskott pga höga kontraster.
+- **Dojo-interiör**: bokken-ställ (3 lutande stavar), hänglykta (varm glödpunkt), signum-affisch (rött sigill), tatami-sömmar i golv — ritas in i self.bg under _build (statiskt = gratis per frame).
+- **Koreografi-blockering**: EP003 scen 3 — Naya gick in i Kabas drop-zon; lösning: hon backar (2.1-3.6 mov till x=302) INNAN Kaba landar vid 3.2. REGEL: vid skurk-drop ska alla andra tracks flyttas ur ~70px radie, eller paus-sättas före droppen.
+- Verifierat: ögonprobe isolerat, bodies-lineup isolerat, sedan 3x12-frames fullreview. Säsongen säljs först då alla tre grids passerar.
