@@ -731,7 +731,11 @@ def apply_camera(img, t, ops):
     d = ImageDraw.Draw(img, "RGBA")
     for op in ops:
         k = op["kind"]
-        if k == "zoom":
+        if k == "tilt":
+            deg = op.get("deg", 2.0)
+            img = img.rotate(deg, resample=NEAREST, fillcolor=(0, 0, 0, 255))
+            d = ImageDraw.Draw(img, "RGBA")
+        elif k == "zoom":
             z = op["z"](t) if callable(op["z"]) else op["z"]
             if z > 1.001:
                 fx, fy = op.get("focus", (W // 2, H // 2))
@@ -984,9 +988,12 @@ def draw_body(img, suit, j, scale=1.0):
     _cap(d, hipL, hipR, suit.jacket, int(9 * scale), out)
     _cap(d, shL, shR, suit.jacket, int(8 * scale), out)
     _cap(d, P("pelvis"), P("neck"), suit.jacket, int(11 * scale), out)
-    # tvåtons-skuggning: höger sida mörkare (ljus från vänster)
+    # 3-tons-rampa: höger sida mörkare, vänster kant glans (ljus från vänster)
     _cap(d, (P("pelvis")[0] + 7, P("pelvis")[1]), (shR[0] + 2, shR[1]),
          _dk(suit.jacket, 0.8), int(6 * scale), _dk(suit.jacket, 0.8))
+    _cap(d, (P("pelvis")[0] - 8, P("pelvis")[1] + 1), (shL[0] + 1, shL[1] + 1),
+         tuple(min(255, int(v * 1.22)) for v in suit.jacket[:3]), int(3 * scale),
+         tuple(min(255, int(v * 1.22)) for v in suit.jacket[:3]))
     # krage + dragkedja
     nx, ny = P("neck")
     d.polygon([(nx - 5, ny + 2), (nx, ny - 3), (nx + 5, ny + 2)], fill=_dk(suit.jacket, 0.8))
@@ -1066,6 +1073,9 @@ def make_head_images(cols, hair_style, iris):
         im = _base_head(skin, out)
         d = ImageDraw.Draw(im)
         _hair(d, hair_style, cols["H"], out)
+        # hårfäst-skugga (anime-tell): mörk hudrand längs frisans
+        d.line([(6, 13), (27, 13)], fill=_dk(skin, 0.72))
+        d.line([(7, 14), (26, 14)], fill=_dk(skin, 0.85))
 
         def eye(cx, cy, side):
             if state == "blink":

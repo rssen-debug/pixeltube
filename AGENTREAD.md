@@ -459,3 +459,14 @@ User: "när dem pratar kommer det någon konstig bild upp som ett anime spel —
 - **PUNCH-IN**: renderloopen lägger dynamisk zoom-op mot talarens position (focus=(track.x,92), z=1+0.45·ease, in 0.22s / ut 0.28s) — närbild utan overlay. Ops byggs ALLTID för dock/dojo (även scener utan egen cam: ops-lista + letterbox samlat innan apply_camera).
 - **Art-pass**: tvåtonshår (mörkröd undersida + glansprickar), ansiktets högsta kant skuggad (pannkant + haka, INTE över ögonen — första varianten åt upp höger öga!), öra, större vitögd 7×8 px-öga m/ iris+mörk pupillkolumn+glans, wide-state 1px högre. Validering: enskilt huvud i 3×-zoom FÖRE full render (AGENTREAD-regeln).
 - Känsloregler: kaba=(angry,open,grit,vein) alltid; "cheap shot"/"owes me"=(sad,open,grit,sweat+blush); heta nyckelord (KIDS, WAKE THEM, Show yourself, My turn, Activate)=(whiteout,shout,grit); mika=(wide,open,grin); yuki=(angry,open,frown); ren-default=(wide,open,grit).
+
+## 9j) v3.3 ANIME-KAMERASPRÅK + 16-BIT-RAMP + SÄSONG 1 (EP001-003)
+Research (autoweeb/frameo/gugu storyboard-guider + limited-animation-underlag):
+- Vinkelspråk: eye-level=vardag, low-angle=makt/skurk (KABA ALLTID low+tilt 2.2°), high-angle=sårbar, dutch=kaos, ECU+vit-blixt+skak på heta repliker. Progression: etablerande wide -> MCU -> shot-reverse-shot -> breather(wide) vid pauser >=1.4s.
+- Limited animation (vår logik redan rätt): on-twos (FPSS=12!), håll-cel + mun/ögon-lager, speglade cels (flip), pan över statisk BG.
+- 16-bit-känsla på CPU: 3-tons-rampa (skugga/bas/glans) på jacket+hår+hud, hårfäst-skugga (2 rader mörk hud under fransen — kolla head_zoom FÖRE full render!), wigger öga 7px vitt + mörk pupillkolumn.
+- IMPLEMENTERAT: E.apply_camera "tilt"-op (rot+fyll svart). _shot_plan(lwins) -> breather/low/ecu/mcu. Renderloopen ERSÄTTER scenens zoom-ops när shot-segment aktivt (annars dubbel-croppar focus — buggen som la Ren vid kanten i C-part). ECU: z+0.85 focus(x,86), vit alpha195-blixt <0.17s, mikroskak. LOW: tilt+zoom focus(x,108), djupare fy (ser upp till skurken).
+- NY KARAKTÄR: Naya (dimflickan) — hair long, ljus-cyan, iris 150,240,240, voice "naya" pitch 1.28 (lagd till voice.SPECIES_PITCH + CHIP_COLS/DISP). _mood_for_line naya=(sad,open,frown).
+- REGEL: namn i läppsynk/NON-narr-listor ska vara cast-drivna ("who in cast and who not in narr/hood"), inte hårdkodade "ren/yuki/mika/kaba".
+- SÄSONG 1: EP001-003 i samma regibok-struktur; episode-registry {1,2,3} i main(). Render ~16s/episod CPU.
+- Preview-kort driver kontinuitet: ep1->ep2 "The Girl in the Fog", ep2->ep3 "The Clockwork Tower", ep3->ep4 "The Static Answers". Hood-mysteriet ALDRIG besvarat (stående v6-regel).
